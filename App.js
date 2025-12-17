@@ -407,7 +407,7 @@ const Navbar = ({ onViewChange, currentView, user, isAdmin, onLogout, onLoginCli
     );
 };
 
-const OTTView = ({ tmdbKey }) => {
+const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
     const [movies, setMovies] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [category, setCategory] = useState('now_playing');
@@ -416,7 +416,7 @@ const OTTView = ({ tmdbKey }) => {
 
     useEffect(() => {
         fetchMovies();
-    }, [category, tmdbKey]); // Re-fetch on category change
+    }, [category, tmdbKey]);
 
     const fetchMovies = async (query = '') => {
         if (!tmdbKey) return;
@@ -498,6 +498,17 @@ const OTTView = ({ tmdbKey }) => {
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-zinc-700"><Film size={32} /></div>
                                 )}
+
+                                {isAdmin && (
+                                    <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-4">
+                                        <button
+                                            onClick={() => onImport(movie)}
+                                            className="bg-[var(--primary)] text-black font-bold text-xs uppercase tracking-wider px-4 py-2 rounded-full hover:scale-105 transition-transform flex items-center gap-2"
+                                        >
+                                            <PenTool size={14} /> Write Review
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                             <div className="p-3">
                                 <h3 className="text-white font-bold text-sm truncate" title={movie.title}>{movie.title}</h3>
@@ -514,7 +525,7 @@ const OTTView = ({ tmdbKey }) => {
     );
 };
 
-const Editor = ({ user, onCancel, onSave, onAI, isAILoading }) => {
+const Editor = ({ user, onCancel, onSave, onAI, isAILoading, initialData }) => {
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [excerpt, setExcerpt] = useState('');
@@ -522,6 +533,17 @@ const Editor = ({ user, onCancel, onSave, onAI, isAILoading }) => {
     const [category, setCategory] = useState('Review');
     const [rating, setRating] = useState(4);
     const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        if (initialData) {
+            setTitle(initialData.title || '');
+            setContent(initialData.content || '');
+            setExcerpt(initialData.excerpt || '');
+            setImageUrl(initialData.imageUrl || '');
+            setRating(initialData.rating || 4);
+            if (initialData.category) setCategory(initialData.category);
+        }
+    }, [initialData]);
 
     const handleAIClick = async () => {
         const result = await onAI(title); // Call parent handler
@@ -848,6 +870,7 @@ const App = () => {
     const [tmdbKey, setTmdbKey] = useState('');
     const [geminiKey, setGeminiKey] = useState('');
     const [isAILoading, setIsAILoading] = useState(false);
+    const [draftPost, setDraftPost] = useState(null);
 
     // 1. Auth Setup
     useEffect(() => {
@@ -946,6 +969,19 @@ const App = () => {
         setIsAdmin(false);
         localStorage.removeItem('twc_admin');
         if (view === 'editor') setView('home');
+    };
+
+    const handleImportMovie = (movie) => {
+        setDraftPost({
+            title: movie.title,
+            content: movie.overview,
+            excerpt: movie.overview,
+            imageUrl: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : `https://image.tmdb.org/t/p/w500${movie.poster_path}`,
+            rating: Math.ceil(movie.vote_average / 2),
+            category: 'Review',
+            tmdbId: movie.id
+        });
+        setView('editor');
     };
 
     const handleSaveSettings = (tKey, gKey) => {
@@ -1135,9 +1171,10 @@ const App = () => {
                             onSave={handleSavePost}
                             onAI={handleAIAssist}
                             isAILoading={isAILoading}
+                            initialData={draftPost}
                         />
                     ) : view === 'ott' ? (
-                        <OTTView tmdbKey={tmdbKey} />
+                        <OTTView tmdbKey={tmdbKey} isAdmin={isAdmin} onImport={handleImportMovie} />
                     ) : (
                         <main>
                             {posts.length > 0 ? (
