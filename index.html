@@ -76,7 +76,7 @@
     async function loadApp() {
       try {
         // 1. Fetch Config
-        let values = { FIREBASE_CONFIG: { apiKey: 'demo' }, APP_ID: 'demo', TMDB_KEY: '' };
+        let values = { TMDB_KEY: '' };
         try {
           // Fetch text
           let configText = '';
@@ -90,47 +90,32 @@
           }
 
           if (configText) {
-            // Robust Extraction: Strip 'export' keywords to avoid syntax errors in Function()
-            // and manually return the variables we need.
+            // Robust Extraction: Strip 'export' keywords
             const cleanConfig = configText
               .replace(/export\s+const/g, 'const')
               .replace(/export\s+let/g, 'let')
               .replace(/export\s+var/g, 'var')
-              .replace(/export\s+default/g, ''); // basic cleanup
+              .replace(/export\s+default/g, '');
 
             // Wrap in a function that returns the values. 
-            // We use a try/catch inside the function function to be safe if a var is missing.
             const extractor = new Function(`
                 ${cleanConfig}
                 return { 
-                  FIREBASE_CONFIG: (typeof FIREBASE_CONFIG !== 'undefined' ? FIREBASE_CONFIG : undefined),
-                  APP_ID: (typeof APP_ID !== 'undefined' ? APP_ID : undefined),
                   TMDB_KEY: (typeof TMDB_KEY !== 'undefined' ? TMDB_KEY : undefined)
                 };
              `);
 
             const extracted = extractor();
-            if (extracted.FIREBASE_CONFIG) values.FIREBASE_CONFIG = extracted.FIREBASE_CONFIG;
-            if (extracted.APP_ID) values.APP_ID = extracted.APP_ID;
             if (extracted.TMDB_KEY) values.TMDB_KEY = extracted.TMDB_KEY;
           }
         } catch (e) {
           console.error("Config extraction failed:", e);
         }
 
-        // 2. INJECT GLOBALS (Critical for User's Code)
-        window.__firebase_config = JSON.stringify(values.FIREBASE_CONFIG);
-        window.__app_id = values.APP_ID;
+        // 2. INJECT GLOBALS
         window.TMDB_KEY = values.TMDB_KEY;
 
-        console.log("Globals Injected:", { appId: window.__app_id, tmdb: !!window.TMDB_KEY });
-
-        // CONFIG VALIDATION
-        if (values.FIREBASE_CONFIG.apiKey === "YOUR_FIREBASE_API_KEY" || values.FIREBASE_CONFIG.apiKey === "demo") {
-          const msg = "DATABASE NOT CONFIGURED: You are using placeholder credentials. You must edit config.js with your real Firebase keys.";
-          alert(msg);
-          throw new Error(msg);
-        }
+        console.log("Globals Injected:", { tmdb: !!window.TMDB_KEY });
 
         // 3. Fetch App
         const response = await fetch('./App.js?t=' + Date.now());

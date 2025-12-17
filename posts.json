@@ -1,0 +1,26 @@
+[
+  {
+    "id": "sample-1",
+    "title": "Welcome to The Weekend Cinema",
+    "content": "This is your new simplified blog! \n\nWe have switched to a high-performance JSON database hosted directly on GitHub. This means your site will load instantly for everyone around the world, with no complex setup required.\n\nEnjoy writing!",
+    "excerpt": "Welcome to your new fast and simple movie blog.",
+    "imageUrl": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&q=80",
+    "category": "News",
+    "rating": 5,
+    "author": "System",
+    "createdAt": { "seconds": 1702800000 },
+    "tmdbId": null
+  },
+  {
+    "id": "sample-2",
+    "title": "Interstellar: A Masterpiece",
+    "content": "Christopher Nolan's Interstellar is not just a movie; it's an experience. from the thundering score by Hans Zimmer to the visual tearing of spacetime, it demands to be seen on the biggest screen possible.\n\nThe emotional core of the film, driven by the relationship between Cooper and Murph, anchors the high-concept sci-fi in something deeply human.",
+    "excerpt": "Looking back at Nolan's sci-fi epic ten years later.",
+    "imageUrl": "https://image.tmdb.org/t/p/w1280/gEU2QniL6E8AHtMY4kHKDmGVf0.jpg",
+    "category": "Review",
+    "rating": 5,
+    "author": "Staff Critic",
+    "createdAt": { "seconds": 1702700000 },
+    "tmdbId": 157336
+  }
+]
