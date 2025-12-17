@@ -483,16 +483,16 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
         );
     }
 
-    const languages = [
-        { code: '', label: '🌏 Global' },
-        { code: 'hi', label: '🇮🇳 Hindi' }, // Bollywood
-        { code: 'te', label: '🇮🇳 Telugu' }, // Tollywood
-        { code: 'ta', label: '🇮🇳 Tamil' }, // Kollywood
-        { code: 'kn', label: '🇮🇳 Kannada' }, // Sandalwood
-        { code: 'ml', label: '🇮🇳 Malayalam' } // Mollywood
+    const languageList = [
+        { code: '', label: 'Global' },
+        { code: 'hi', label: 'Hindi (India)' },
+        { code: 'te', label: 'Telugu (India)' },
+        { code: 'ta', label: 'Tamil (India)' },
+        { code: 'kn', label: 'Kannada (India)' },
+        { code: 'ml', label: 'Malayalam (India)' }
     ];
 
-    const genres = [
+    const genreList = [
         { id: '', name: 'All Genres' },
         { id: '28', name: 'Action' },
         { id: '12', name: 'Adventure' },
@@ -514,7 +514,7 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
         { id: '37', name: 'Western' },
     ];
 
-    const years = Array.from({ length: 35 }, (_, i) => new Date().getFullYear() - i + 1);
+    const yearList = Array.from({ length: 35 }, (_, i) => new Date().getFullYear() - i + 1);
 
     return (
         <div className="max-w-7xl mx-auto px-4 py-8">
@@ -545,7 +545,7 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
                         className="bg-zinc-900 border border-zinc-800 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 outline-none focus:border-[var(--primary)] w-full md:w-auto appearance-none cursor-pointer"
                         style={{ backgroundImage: 'none' }}
                     >
-                        {languages.map(lang => (
+                        {languageList.map(lang => (
                             <option key={lang.code} value={lang.code}>{lang.label}</option>
                         ))}
                     </select>
@@ -558,7 +558,7 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
                         style={{ backgroundImage: 'none' }}
                     >
                         <option value="">Year: All</option>
-                        {years.map(y => (
+                        {yearList.map(y => (
                             <option key={y} value={y}>{y}</option>
                         ))}
                     </select>
@@ -570,7 +570,7 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
                         className="bg-zinc-900 border border-zinc-800 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 outline-none focus:border-[var(--primary)] w-full md:w-auto appearance-none cursor-pointer"
                         style={{ backgroundImage: 'none' }}
                     >
-                        {genres.map(g => (
+                        {genreList.map(g => (
                             <option key={g.id} value={g.id}>{g.name}</option>
                         ))}
                     </select>
