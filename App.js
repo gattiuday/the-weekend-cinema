@@ -215,8 +215,9 @@ const AdminLoginModal = ({ onClose, onLogin }) => {
     );
 };
 
-const SettingsModal = ({ onClose, onSave, onSync, initialKey }) => {
+const SettingsModal = ({ onClose, onSave, onSync, initialKey, initialGeminiKey }) => {
     const [key, setKey] = useState(initialKey || '');
+    const [geminiKey, setGeminiKey] = useState(initialGeminiKey || '');
     const [isSyncing, setIsSyncing] = useState(false);
 
     const handleSyncClick = async () => {
@@ -243,11 +244,19 @@ const SettingsModal = ({ onClose, onSave, onSync, initialKey }) => {
                             type="text"
                             value={key}
                             onChange={(e) => setKey(e.target.value)}
-                            placeholder="Enter your TMDB Key for official posters..."
+                            placeholder="Enter TMDB Key..."
+                            className="w-full bg-black border border-zinc-700 rounded p-3 text-white text-sm focus:border-[var(--primary)] outline-none font-mono mb-2"
+                        />
+                        <label className="block text-xs uppercase tracking-widest text-zinc-500 font-bold mb-2">Google Gemini API Key</label>
+                        <input
+                            type="text"
+                            value={geminiKey}
+                            onChange={(e) => setGeminiKey(e.target.value)}
+                            placeholder="Enter Gemini Key..."
                             className="w-full bg-black border border-zinc-700 rounded p-3 text-white text-sm focus:border-[var(--primary)] outline-none font-mono"
                         />
                         <p className="text-[10px] text-zinc-600 mt-2">
-                            Required for "Sync TMDB Trends" and Official Posters. Get one free at themoviedb.org.
+                            TMDB for Sync. Gemini for AI Writer.
                         </p>
                     </div>
 
@@ -261,7 +270,7 @@ const SettingsModal = ({ onClose, onSave, onSync, initialKey }) => {
                             {isSyncing ? 'Syncing...' : 'Sync Trends'}
                         </button>
                         <button
-                            onClick={() => onSave(key)}
+                            onClick={() => onSave(key, geminiKey)}
                             className="flex-1 py-3 bg-[var(--primary)] text-black font-bold uppercase tracking-wider rounded-sm hover:opacity-90"
                         >
                             Save
@@ -443,7 +452,7 @@ const OTTView = ({ movies }) => {
     );
 };
 
-const Editor = ({ user, onCancel, onSave }) => {
+const Editor = ({ user, onCancel, onSave, onAI, isAILoading }) => {
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [excerpt, setExcerpt] = useState('');
@@ -451,6 +460,17 @@ const Editor = ({ user, onCancel, onSave }) => {
     const [category, setCategory] = useState('Review');
     const [rating, setRating] = useState(4);
     const [isSaving, setIsSaving] = useState(false);
+
+    const handleAIClick = async () => {
+        const result = await onAI(title); // Call parent handler
+        if (result) {
+            setTitle(result.title || title);
+            setContent(result.content || content);
+            setExcerpt(result.excerpt || result.content?.substring(0, 100) || excerpt);
+            setRating(result.rating || 4);
+            // setCategory(result.category || 'Review'); // Optional
+        }
+    };
 
     const handleRandomImage = () => {
         setImageUrl(`https://placehold.co/1200x800/222222/FFFFFF?text=${encodeURIComponent(title || "Poster")}`);
@@ -763,7 +783,11 @@ const App = () => {
     const [isAdmin, setIsAdmin] = useState(false); // Security: Disabled by default
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
+    const [showLoginModal, setShowLoginModal] = useState(false);
+    const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [tmdbKey, setTmdbKey] = useState('');
+    const [geminiKey, setGeminiKey] = useState('');
+    const [isAILoading, setIsAILoading] = useState(false);
 
     // 1. Auth Setup
     useEffect(() => {
@@ -803,9 +827,12 @@ const App = () => {
             if (savedKey) {
                 setTmdbKey(savedKey);
             } else if (typeof window.TMDB_KEY !== 'undefined' && window.TMDB_KEY) {
-                // Feature: Use global config key if no local override exists
                 setTmdbKey(window.TMDB_KEY);
             }
+
+            const savedGemini = localStorage.getItem('gemini_key');
+            if (savedGemini) setGeminiKey(savedGemini);
+
         } catch (e) {
             console.warn("Could not load local settings", e);
         }
@@ -861,11 +888,53 @@ const App = () => {
         if (view === 'editor') setView('home');
     };
 
-    const handleSaveSettings = (key) => {
-        setTmdbKey(key);
-        localStorage.setItem('tmdb_key', key);
+    const handleSaveSettings = (tKey, gKey) => {
+        setTmdbKey(tKey);
+        setGeminiKey(gKey);
+        localStorage.setItem('tmdb_key', tKey);
+        localStorage.setItem('gemini_key', gKey);
         setShowSettingsModal(false);
-        // alert("API Key Saved! You can now sync official trends.");
+    };
+
+    const handleAIAssist = async (topic) => {
+        if (!geminiKey) {
+            alert("Please enter a Gemini API Key in Settings first.");
+            return;
+        }
+        setIsAILoading(true);
+        try {
+            const prompt = `Generate a JSON object for a movie blog post about "${topic}". Fields: title (string), content (3 paragraphs string), excerpt (string), rating (number 1-5). Do not return markdown, just raw JSON.`;
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${geminiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }]
+                })
+            });
+            const data = await response.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+                // Clean markdown if present
+                const jsonStr = text.replace(/```json/g, '').replace(/```/g, '');
+                const result = JSON.parse(jsonStr);
+                // We need to return this to the editor. 
+                // Since Editor is a child, we need to pass a callback or return logic.
+                // Actually, checking how Editor uses it. It calls onAI(topic).
+                // We need to update Editor to accept a callback for results? 
+                // Or better yet, move this logic TO the Editor? 
+                // No, keeping it here is better for key management.
+                // Wait, Editor needs to SET its local state. 
+                // Returning the result here allows Editor to await it.
+                setIsAILoading(false);
+                return result;
+            }
+        } catch (e) {
+            console.error(e);
+            alert("AI Error: " + e.message);
+        }
+        setIsAILoading(false);
+        return null;
     };
 
     const handleSyncTrends = async (key) => {
@@ -984,6 +1053,7 @@ const App = () => {
                             onSave={handleSaveSettings}
                             onSync={handleSyncTrends}
                             initialKey={tmdbKey}
+                            initialGeminiKey={geminiKey}
                         />
                     )}
 
@@ -1003,6 +1073,8 @@ const App = () => {
                             user={user}
                             onCancel={() => setView('home')}
                             onSave={handleSavePost}
+                            onAI={handleAIAssist}
+                            isAILoading={isAILoading}
                         />
                     ) : view === 'ott' ? (
                         <OTTView movies={guideMovies} />
