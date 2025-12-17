@@ -483,7 +483,12 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
         { code: 'te', label: 'Telugu (India)' },
         { code: 'ta', label: 'Tamil (India)' },
         { code: 'kn', label: 'Kannada (India)' },
-        { code: 'ml', label: 'Malayalam (India)' }
+        { code: 'ml', label: 'Malayalam (India)' },
+        { code: 'mr', label: 'Marathi (India)' },
+        { code: 'bn', label: 'Bengali (India)' },
+        { code: 'pa', label: 'Punjabi (India)' },
+        { code: 'gu', label: 'Gujarati (India)' },
+        { code: 'or', label: 'Odia (India)' }
     ];
 
     const genreList = [
