@@ -62,12 +62,11 @@ import {
 } from 'lucide-react';
 
 // --- Firebase Configuration ---
-import { FIREBASE_CONFIG, APP_ID, TMDB_KEY } from './config.js';
-
-const app = initializeApp(FIREBASE_CONFIG);
+const firebaseConfig = JSON.parse(__firebase_config);
+const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = APP_ID || 'default-app-id';
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 // --- Helper Functions ---
 const getPlatformColor = (platform) => {
@@ -726,10 +725,10 @@ const App = () => {
     const [selectedPost, setSelectedPost] = useState(null);
     const [loading, setLoading] = useState(true);
     const [themeColor, setThemeColor] = useState('#f59e0b'); // Default Amber
-    const [isAdmin, setIsAdmin] = useState(false); // Default to false for security
+    const [isAdmin, setIsAdmin] = useState(true); // Preview Mode: Enabled by default
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
-    const [tmdbKey, setTmdbKey] = useState(TMDB_KEY || '');
+    const [tmdbKey, setTmdbKey] = useState('');
 
     // 1. Auth Setup
     useEffect(() => {
@@ -754,6 +753,8 @@ const App = () => {
         try {
             const savedTheme = localStorage.getItem('twc_theme');
             if (savedTheme) setThemeColor(savedTheme);
+            const savedAdmin = localStorage.getItem('twc_admin');
+            if (savedAdmin === 'true') setIsAdmin(true);
             const savedKey = localStorage.getItem('tmdb_key');
             if (savedKey) setTmdbKey(savedKey);
         } catch (e) {
@@ -793,6 +794,7 @@ const App = () => {
 
     const handleAdminLogin = () => {
         setIsAdmin(true);
+        localStorage.setItem('twc_admin', 'true');
     };
 
     const handleAdminLogout = () => {

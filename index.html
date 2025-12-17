@@ -71,37 +71,45 @@
   <script type="module">
     async function loadApp() {
       try {
-        // 1. Fetch Config (or Fallback)
-        let configText = '';
+        // 1. Fetch Config
+        let configModule;
         try {
+          // Use the Blob Import Strategy to load config as a module
           const r = await fetch('./config.js');
-          if (r.ok) configText = await r.text();
-          else throw new Error('config.js missing');
-        } catch (e) {
-          console.warn("Using fallback config");
-          try {
+          let configText = '';
+          if (r.ok) {
+            configText = await r.text();
+          } else {
+            // Fallback
+            console.warn("config.js missing, using callback");
             const r2 = await fetch('./config.example.js');
             if (r2.ok) configText = await r2.text();
-            else throw e;
-          } catch (e2) {
-            configText = 'export const FIREBASE_CONFIG = { apiKey: "demo" }; export const APP_ID = "demo"; export const TMDB_KEY = "";';
+            else throw new Error("No config found");
           }
+
+          const configBlob = new Blob([configText], { type: 'text/javascript' });
+          const configUrl = URL.createObjectURL(configBlob);
+          configModule = await import(configUrl);
+
+        } catch (e) {
+          console.error("Config load failed", e);
+          // Hard fallback for globals
+          configModule = {
+            FIREBASE_CONFIG: { apiKey: "demo" },
+            APP_ID: "demo",
+            TMDB_KEY: ""
+          };
         }
 
-        // Create a real ES Module from the config text
-        const configBlob = new Blob([configText], { type: 'text/javascript' });
-        const configUrl = URL.createObjectURL(configBlob);
+        // 2. INJECT GLOBALS (To support user's legacy App.js code)
+        window.__firebase_config = JSON.stringify(configModule.FIREBASE_CONFIG);
+        window.__app_id = configModule.APP_ID;
+        window.TMDB_KEY = configModule.TMDB_KEY;
 
-        // 2. Fetch App
+        // 3. Fetch App
         const response = await fetch('./App.js');
         if (!response.ok) throw new Error(`Failed to load App.js: ${response.statusText}`);
         let appCode = await response.text();
-
-        // 3. Replace relative import with the Blob URL
-        // From: import ... from './config.js';
-        // To:   import ... from 'blob:http://...';
-        // This preserves the module graph perfectly!
-        appCode = appCode.replace(/['"]\.\/config\.js['"]/, `'${configUrl}'`);
 
         // 4. Transform JSX (React only)
         const output = Babel.transform(appCode, {
@@ -113,7 +121,7 @@
         const appBlob = new Blob([output.code], { type: 'text/javascript' });
         const appUrl = URL.createObjectURL(appBlob);
         await import(appUrl);
-        console.log("App loaded via Blob Module Strategy");
+        console.log("App loaded via Global Injection Strategy");
 
       } catch (err) {
         console.error("Critical Boot Error:", err);
