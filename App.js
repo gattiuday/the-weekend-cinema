@@ -662,7 +662,7 @@ return (
                     <div key={movie.id} className="group relative bg-zinc-900 rounded-sm overflow-hidden border border-zinc-800 hover:border-[var(--primary)] transition-all">
                         <div className="aspect-[2/3] overflow-hidden bg-zinc-900">
                             {movie.poster_path ? (
-                                <img src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`} alt={movie.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                                <img src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`} alt={movie.title || movie.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center text-zinc-700"><Film size={32} /></div>
                             )}
@@ -679,9 +679,9 @@ return (
                             )}
                         </div>
                         <div className="p-3">
-                            <h3 className="text-white font-bold text-sm truncate" title={movie.title}>{movie.title}</h3>
+                            <h3 className="text-white font-bold text-sm truncate" title={movie.title || movie.name}>{movie.title || movie.name}</h3>
                             <div className="flex items-center justify-between mt-2 text-xs text-zinc-500">
-                                <span>{movie.release_date ? movie.release_date.split('-')[0] : 'N/A'}</span>
+                                <span>{(movie.release_date || movie.first_air_date || '').split('-')[0] || 'N/A'}</span>
                                 <span className="flex items-center gap-1 text-[var(--primary)]"><Star size={10} fill="currentColor" /> {movie.vote_average?.toFixed(1)}</span>
                             </div>
                         </div>
