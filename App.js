@@ -18,8 +18,10 @@ import {
     getDoc,
     serverTimestamp,
     deleteDoc,
-    writeBatch
+    writeBatch,
+    setDoc
 } from 'firebase/firestore';
+
 // Using only standard, highly-compatible icons to prevent crashes
 import {
     Clapperboard,
@@ -969,7 +971,7 @@ const ArticleCard = ({ post, onRead }) => (
     </div>
 );
 
-const ArticleView = ({ post, onBack, onDelete, user, isAdmin }) => {
+const ArticleView = ({ post, onBack, onDelete, onEdit, user, isAdmin }) => {
     return (
         <div className="min-h-screen bg-black text-zinc-300">
             <div className="max-w-4xl mx-auto px-4 py-12">
@@ -1009,7 +1011,13 @@ const ArticleView = ({ post, onBack, onDelete, user, isAdmin }) => {
                 </article>
 
                 {isAdmin && (
-                    <div className="mt-16 pt-8 border-t border-zinc-800 flex justify-end">
+                    <div className="mt-16 pt-8 border-t border-zinc-800 flex justify-end gap-4">
+                        <button
+                            onClick={() => onEdit(post)}
+                            className="flex items-center gap-2 text-[var(--primary)] hover:text-white text-sm uppercase tracking-widest border border-[var(--primary)] px-4 py-2 hover:bg-[var(--primary)]/10 transition-colors"
+                        >
+                            <PenTool size={14} /> Edit Article
+                        </button>
                         <button
                             onClick={() => onDelete(post.id)}
                             className="flex items-center gap-2 text-red-500 hover:text-red-400 text-sm uppercase tracking-widest border border-red-500/20 px-4 py-2 hover:bg-red-500/10 transition-colors"
@@ -1239,10 +1247,32 @@ const App = () => {
         }
     };
 
+    const handleEditPost = (post) => {
+        setDraftPost({
+            ...post,
+            // Ensure rating is valid
+            rating: post.rating || 4,
+            // Keep the ID for saving
+            id: post.id
+        });
+        setView('editor');
+    };
+
     const handleSavePost = async (postData) => {
         if (!user) return;
         try {
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), postData);
+            if (postData.id) {
+                // Update existing
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'posts', postData.id);
+                // Remove id from data to avoid saving it as a field
+                const { id, ...dataToSave } = postData;
+                await setDoc(docRef, { ...dataToSave, updatedAt: serverTimestamp() }, { merge: true });
+            } else {
+                // Create new
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), postData);
+            }
+            // Clear draft and go home
+            setDraftPost(null);
             setView('home');
         } catch (err) {
             console.error("Error saving post:", err);
@@ -1331,6 +1361,7 @@ const App = () => {
                                 setView('home');
                             }}
                             onDelete={handleDeletePost}
+                            onEdit={handleEditPost}
                             user={user}
                             isAdmin={isAdmin}
                         />
