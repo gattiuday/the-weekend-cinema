@@ -1064,7 +1064,7 @@ const App = () => {
                             <span className="font-serif font-bold text-lg">TWC</span>
                         </div>
                         <div className="text-zinc-600 text-xs uppercase tracking-widest text-center md:text-left">
-                            © 2024 The Weekend Cinema. All rights reserved.
+                            © 2024 The Weekend Cinema. All rights reserved. <span className="opacity-50 ml-2">v1.2 (Persistent)</span>
                         </div>
                         <div className="flex gap-6 text-zinc-600 items-center">
                             <span className="hover:text-white cursor-pointer transition-colors"><Search size={18} /></span>
