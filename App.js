@@ -448,7 +448,15 @@ const Editor = ({ onCancel, onSave, onAI, isAILoading, initialData }) => {
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div><label className="text-xs font-bold text-zinc-500 uppercase">Title</label><input value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-black border-b border-zinc-700 p-2 text-2xl text-white outline-none" placeholder="Movie Title" /></div>
                 <div><label className="text-xs font-bold text-zinc-500 uppercase">Image URL (or Random)</label><div className="flex gap-2"><input value={imageUrl} onChange={e => setImageUrl(e.target.value)} className="flex-1 bg-zinc-900 border border-zinc-800 p-2 text-white" /><button type="button" onClick={handleRandomImage} className="bg-zinc-800 text-white px-4 rounded"><ImageIcon size={20} /></button></div></div>
-                <div><label className="text-xs font-bold text-zinc-500 uppercase">Content</label><textarea value={content} onChange={e => setContent(e.target.value)} className="w-full h-64 bg-zinc-900 border border-zinc-800 p-4 text-white font-serif text-lg" placeholder="Review content..." /></div>
+                <div>
+                    <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs font-bold text-zinc-500 uppercase">Content</label>
+                        <button type="button" onClick={async () => { const text = await onAI(title); if (text) setContent(text); }} disabled={isAILoading || !title} className="text-[var(--primary)] text-xs font-bold uppercase tracking-widest flex items-center gap-2 hover:text-white disabled:opacity-50">
+                            {isAILoading ? 'Thinking...' : <><Zap size={14} /> AI Auto-Write</>}
+                        </button>
+                    </div>
+                    <textarea value={content} onChange={e => setContent(e.target.value)} className="w-full h-64 bg-zinc-900 border border-zinc-800 p-4 text-white font-serif text-lg" placeholder="Write your review here... or click 'AI Auto-Write' to generate one!" />
+                </div>
                 <div className="flex justify-end gap-3 mt-4">
                     <button type="button" onClick={onCancel} className="text-zinc-500 uppercase font-bold text-xs hover:text-white">Cancel</button>
                     <button type="submit" disabled={isSaving} className="bg-[var(--primary)] text-black px-8 py-3 font-bold uppercase text-xs rounded-sm hover:opacity-90">{isSaving ? 'Saving...' : 'Save & Download DB'}</button>
@@ -586,7 +594,37 @@ const App = () => {
 
     const handleEditPost = (post) => { setDraftPost(post); setView('editor'); };
 
-    // TODO: Implement simple AI assist if keys exist (using fetch)
+    const handleAI = async (title) => {
+        if (!geminiKey) { alert("Please set your Gemini API Key in Settings first."); return null; }
+        setLoading(true);
+        try {
+            const prompt = `Write a passionate, engaging, and professional movie review for the film "${title}". 
+            Format:
+            - A catchy headline (distinct from title).
+            - An exciting introduction without spoilers.
+            - A deep dive into acting, direction, and score.
+            - A final verdict/rating explanation.
+            Keep it under 300 words. Use Markdown formatting.`;
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+
+            const data = await response.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            setLoading(false);
+            if (text) return text;
+            else throw new Error("No text generated");
+        } catch (e) {
+            console.error(e);
+            setLoading(false);
+            alert("AI Generation Failed: " + e.message);
+            return null;
+        }
+    };
 
     const featuredPost = posts[0];
     const regularPosts = posts.slice(1);
@@ -607,7 +645,7 @@ const App = () => {
                     {selectedPost ? (
                         <ArticleView post={selectedPost} onBack={() => { setSelectedPost(null); setView('home'); }} onDelete={handleDeletePost} onEdit={handleEditPost} isAdmin={isAdmin} />
                     ) : view === 'editor' && isAdmin ? (
-                        <Editor onCancel={() => setView('home')} onSave={handleSavePost} initialData={draftPost} />
+                        <Editor onCancel={() => setView('home')} onSave={handleSavePost} onAI={handleAI} initialData={draftPost} isAILoading={loading} />
                     ) : view === 'ott' ? (
                         <OTTView tmdbKey={tmdbKey} isAdmin={isAdmin} onImport={(m) => { setDraftPost({ title: m.title, content: m.overview, imageUrl: `https://image.tmdb.org/t/p/w1280${m.backdrop_path}` }); setView('editor'); }} />
                     ) : (
