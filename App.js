@@ -589,8 +589,9 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
             </div>
 
             {/* Debug Info */}
-            <div className="text-xs text-zinc-600 font-mono mb-4">
-                API Key Present: {tmdbKey ? 'Yes' : 'No'} | Movies: {movies.length} | Loading: {loading ? 'Yes' : 'No'} | Error: {error || 'None'}
+            <div className="text-xs text-zinc-600 font-mono mb-4 break-all">
+                KEY: {tmdbKey ? 'OK' : 'MISSING'} | MOVIES: {movies.length} |
+                URL: {loading ? 'Fetching...' : error ? 'Error' : 'Ready'}
             </div>
 
             {/* Content */}

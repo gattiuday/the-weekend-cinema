@@ -126,7 +126,7 @@
         console.log("Globals Injected:", { appId: window.__app_id, tmdb: !!window.TMDB_KEY });
 
         // 3. Fetch App
-        const response = await fetch('./App.js');
+        const response = await fetch('./App.js?t=' + Date.now());
         if (!response.ok) throw new Error(`Failed to load App.js: ${response.statusText}`);
         let appCode = await response.text();
 
