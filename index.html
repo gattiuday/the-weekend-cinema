@@ -58,8 +58,8 @@
     };
   </script>
 
-  <!-- Babel Standalone for JSX -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin="anonymous"></script>
+  <!-- Babel Standalone (Pinned Version) -->
+  <script src="https://unpkg.com/@babel/standalone@7.26.2/babel.min.js" crossorigin="anonymous"></script>
 
   <!-- Configuration Loader Removed (Consumed directly by App.js) -->
 </head>
@@ -130,10 +130,21 @@
         if (!response.ok) throw new Error(`Failed to load App.js: ${response.statusText}`);
         let appCode = await response.text();
 
+        // CHECK FOR SOFT 404 (HTML returned instead of JS)
+        if (appCode.trim().startsWith('<')) {
+          console.error("App.js content appears to be HTML:", appCode.substring(0, 100));
+          throw new Error("Failed to load App.js (Server returned HTML instead of Code). Check file paths.");
+        }
+
         // 4. Transform JSX (React only)
+        // We use 'env' but disable modules to keep 'import' statements for the browser to resolve via importmap
         const output = Babel.transform(appCode, {
-          presets: [['react', { runtime: 'classic' }]],
+          presets: [
+            ['env', { modules: false, targets: { esmodules: true } }],
+            ['react', { runtime: 'classic' }]
+          ],
           filename: 'App.js',
+          sourceType: 'module'
         });
 
         // 5. Run App
