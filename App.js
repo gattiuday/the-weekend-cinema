@@ -947,6 +947,7 @@ const App = () => {
                         <SettingsModal
                             onClose={() => setShowSettingsModal(false)}
                             onSave={handleSaveSettings}
+                            onSync={handleSyncTrends}
                             initialKey={tmdbKey}
                         />
                     )}
