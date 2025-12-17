@@ -1105,11 +1105,12 @@ const App = () => {
             orderBy('createdAt', 'desc')
         );
 
-        const unsubPosts = onSnapshot(qPosts, (snapshot) => {
+        const unsubPosts = onSnapshot(qPosts, { includeMetadataChanges: true }, (snapshot) => {
             const fetchedPosts = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             }));
+            console.log("Posts updated:", fetchedPosts.length, "Source:", snapshot.metadata.hasPendingWrites ? "Local" : "Server");
             setPosts(fetchedPosts);
             setLoading(false);
         }, (error) => {
