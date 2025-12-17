@@ -407,250 +407,290 @@ const Navbar = ({ onViewChange, currentView, user, isAdmin, onLogout, onLoginCli
     );
 };
 
-const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
-    const [movies, setMovies] = useState([]);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [category, setCategory] = useState('now_playing');
-    const [language, setLanguage] = useState('');
-    const [year, setYear] = useState('');
-    const [genre, setGenre] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [sortBy, setSortBy] = useState('popularity.desc');
+const [contentType, setContentType] = useState('movie'); // 'movie' or 'tv'
+const [movies, setMovies] = useState([]);
+const [searchQuery, setSearchQuery] = useState('');
+const [category, setCategory] = useState('now_playing'); // Shared category names (now_playing, popular, top_rated, upcoming/on_the_air)
+const [language, setLanguage] = useState('');
+const [year, setYear] = useState('');
+const [genre, setGenre] = useState('');
+const [loading, setLoading] = useState(false);
+const [error, setError] = useState(null);
+const [sortBy, setSortBy] = useState('popularity.desc');
 
-    useEffect(() => {
-        fetchMovies();
-    }, [category, tmdbKey, language, year, genre, sortBy]);
+useEffect(() => {
+    setCategory(contentType === 'movie' ? 'now_playing' : 'on_the_air');
+}, [contentType]);
 
-    const fetchMovies = async (query = '') => {
-        if (!tmdbKey) return;
-        setLoading(true);
-        setError(null);
-        try {
-            let url;
+useEffect(() => {
+    fetchMovies();
+}, [contentType, category, tmdbKey, language, year, genre, sortBy]);
 
-            // 1. Search Mode (Global)
-            if (query) {
-                url = `https://api.themoviedb.org/3/search/movie?api_key=${tmdbKey}&language=en-US&query=${encodeURIComponent(query)}&page=1&include_adult=false`;
-            }
-            // 2. Discover Mode (Filters Active: Lang, Year, Genre)
-            else if (language || year || genre) {
-                // If filters are active, we use the explicit 'sortBy' state
-                // This allows users to find "Best Rated" from 1980, etc.
-                let discoverUrl = `https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&sort_by=${sortBy}&page=1&include_adult=false&vote_count.gte=10`;
+const fetchMovies = async (query = '') => {
+    if (!tmdbKey) return;
+    setLoading(true);
+    setError(null);
+    try {
+        let url;
+        const typeMs = contentType === 'movie' ? 'movie' : 'tv';
 
-                if (language) discoverUrl += `&with_original_language=${language}`;
-                if (year) discoverUrl += `&primary_release_year=${year}`;
-                if (genre) discoverUrl += `&with_genres=${genre}`;
-
-                url = discoverUrl;
-            }
-            // 3. Global Standard Mode (Trending/Popular)
-            else {
-                // When no filters are active, we map the 'category' pill to an endpoint
-                url = `https://api.themoviedb.org/3/movie/${category}?api_key=${tmdbKey}&language=en-US&page=1`;
-            }
-
-            const res = await fetch(url);
-            if (!res.ok) throw new Error('Failed to fetch from TMDB');
-            const data = await res.json();
-            setMovies(data.results || []);
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
+        // 1. Search Mode (Global)
+        if (query) {
+            url = `https://api.themoviedb.org/3/search/${typeMs}?api_key=${tmdbKey}&language=en-US&query=${encodeURIComponent(query)}&page=1&include_adult=false`;
         }
-    };
+        // 2. Discover Mode (Filters Active: Lang, Year, Genre)
+        else if (language || year || genre) {
+            // Discover endpoint supports both movie and tv
+            let discoverUrl = `https://api.themoviedb.org/3/discover/${typeMs}?api_key=${tmdbKey}&sort_by=${sortBy}&page=1&include_adult=false&vote_count.gte=10`;
 
-    const handleSearch = (e) => {
-        e.preventDefault();
-        fetchMovies(searchQuery);
-    };
+            if (language) discoverUrl += `&with_original_language=${language}`;
 
-    if (!tmdbKey) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8">
-                <Settings size={48} className="text-zinc-600 mb-4" />
-                <h2 className="text-2xl font-bold text-white mb-2">Setup Required</h2>
-                <p className="text-zinc-500 max-w-md">Please enter your TMDB API Key in Settings to enable the Live Movie Browser.</p>
-            </div>
-        );
+            // Year param differs slightly
+            if (year) {
+                if (contentType === 'movie') discoverUrl += `&primary_release_year=${year}`;
+                else discoverUrl += `&first_air_date_year=${year}`;
+            }
+
+            if (genre) discoverUrl += `&with_genres=${genre}`;
+
+            url = discoverUrl;
+        }
+        // 3. Global Standard Mode (Trending/Popular)
+        else {
+            // Map equivalent categories
+            let safeCat = category;
+            if (contentType === 'tv') {
+                if (safeCat === 'now_playing') safeCat = 'on_the_air';
+                if (safeCat === 'upcoming') safeCat = 'airing_today';
+            } else {
+                if (safeCat === 'on_the_air') safeCat = 'now_playing';
+                if (safeCat === 'airing_today') safeCat = 'upcoming';
+            }
+
+            url = `https://api.themoviedb.org/3/${typeMs}/${safeCat}?api_key=${tmdbKey}&language=en-US&page=1`;
+        }
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Failed to fetch from TMDB');
+        const data = await res.json();
+        setMovies(data.results || []);
+    } catch (err) {
+        setError(err.message);
+    } finally {
+        setLoading(false);
     }
+};
 
-    const languageList = [
-        { code: '', label: 'Global' },
-        { code: 'hi', label: 'Hindi (India)' },
-        { code: 'te', label: 'Telugu (India)' },
-        { code: 'ta', label: 'Tamil (India)' },
-        { code: 'kn', label: 'Kannada (India)' },
-        { code: 'ml', label: 'Malayalam (India)' },
-        { code: 'mr', label: 'Marathi (India)' },
-        { code: 'bn', label: 'Bengali (India)' },
-        { code: 'pa', label: 'Punjabi (India)' },
-        { code: 'gu', label: 'Gujarati (India)' },
-        { code: 'or', label: 'Odia (India)' }
-    ];
+const handleSearch = (e) => {
+    e.preventDefault();
+    fetchMovies(searchQuery);
+};
 
-    const genreList = [
-        { id: '', name: 'All Genres' },
-        { id: '28', name: 'Action' },
-        { id: '12', name: 'Adventure' },
-        { id: '16', name: 'Animation' },
-        { id: '35', name: 'Comedy' },
-        { id: '80', name: 'Crime' },
-        { id: '99', name: 'Documentary' },
-        { id: '18', name: 'Drama' },
-        { id: '10751', name: 'Family' },
-        { id: '14', name: 'Fantasy' },
-        { id: '36', name: 'History' },
-        { id: '27', name: 'Horror' },
-        { id: '10402', name: 'Music' },
-        { id: '9648', name: 'Mystery' },
-        { id: '10749', name: 'Romance' },
-        { id: '878', name: 'Sci-Fi' },
-        { id: '53', name: 'Thriller' },
-        { id: '10752', name: 'War' },
-        { id: '37', name: 'Western' },
-    ];
-
-    const sortOptions = [
-        { value: 'popularity.desc', label: 'Most Popular' },
-        { value: 'vote_average.desc', label: 'Top Rated' },
-        { value: 'primary_release_date.desc', label: 'Newest First' },
-    ];
-
-    const yearList = Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - i + 1);
-
-    const isFiltered = language || year || genre;
-
+if (!tmdbKey) {
     return (
-        <div className="max-w-7xl mx-auto px-4 py-8">
-            {/* Header / Search */}
-            <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8 sticky top-0 bg-black/90 backdrop-blur z-50 py-4 border-b border-zinc-900">
-
-                <div className="flex flex-col gap-4 w-full md:w-auto">
-                    {/* Categories / Sort */}
-                    <div className="flex gap-2 items-center overflow-x-auto pb-2 md:pb-0">
-                        {!isFiltered ? (
-                            ['now_playing', 'popular', 'top_rated', 'upcoming'].map(cat => (
-                                <button
-                                    key={cat}
-                                    onClick={() => { setCategory(cat); setSearchQuery(''); }}
-                                    className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-colors whitespace-nowrap ${category === cat && !searchQuery ? 'bg-[var(--primary)] text-black' : 'text-zinc-500 hover:text-white'}`}
-                                >
-                                    {cat.replace('_', ' ')}
-                                </button>
-                            ))
-                        ) : (
-                            // Show Sort Dropdown when Filtered
-                            <div className="flex items-center gap-2">
-                                <span className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Sort:</span>
-                                <select
-                                    value={sortBy}
-                                    onChange={(e) => setSortBy(e.target.value)}
-                                    className="bg-black text-[var(--primary)] text-xs font-bold uppercase tracking-wider outline-none cursor-pointer"
-                                >
-                                    {sortOptions.map(opt => (
-                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Filters & Search */}
-                <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto items-center">
-                    {/* Filters: Language, Year, Genre */}
-                    <select
-                        value={language}
-                        onChange={(e) => setLanguage(e.target.value)}
-                        className="bg-zinc-900 border border-zinc-800 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 outline-none focus:border-[var(--primary)] w-full md:w-auto appearance-none cursor-pointer"
-                        style={{ backgroundImage: 'none' }}
-                    >
-                        {languageList.map(lang => (
-                            <option key={lang.code} value={lang.code}>{lang.label}</option>
-                        ))}
-                    </select>
-
-                    <select
-                        value={year}
-                        onChange={(e) => setYear(e.target.value)}
-                        className="bg-zinc-900 border border-zinc-800 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 outline-none focus:border-[var(--primary)] w-full md:w-auto appearance-none cursor-pointer"
-                        style={{ backgroundImage: 'none' }}
-                    >
-                        <option value="">Year: All</option>
-                        {yearList.map(y => (
-                            <option key={y} value={y}>{y}</option>
-                        ))}
-                    </select>
-
-                    <select
-                        value={genre}
-                        onChange={(e) => setGenre(e.target.value)}
-                        className="bg-zinc-900 border border-zinc-800 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 outline-none focus:border-[var(--primary)] w-full md:w-auto appearance-none cursor-pointer"
-                        style={{ backgroundImage: 'none' }}
-                    >
-                        {genreList.map(g => (
-                            <option key={g.id} value={g.id}>{g.name}</option>
-                        ))}
-                    </select>
-
-                    <form onSubmit={handleSearch} className="relative w-full md:w-auto">
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search..."
-                            className="bg-zinc-900 border border-zinc-800 text-white rounded-full py-2 pl-4 pr-10 w-full md:w-64 focus:border-[var(--primary)] outline-none text-sm"
-                        />
-                        <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white">
-                            <Search size={16} />
-                        </button>
-                    </form>
-                </div>
-            </div>
-
-            {/* Content */}
-            {loading ? (
-                <div className="flex justify-center py-20"><RefreshCw className="animate-spin text-[var(--primary)]" size={32} /></div>
-            ) : error ? (
-                <div className="text-red-500 text-center py-20">{error}</div>
-            ) : (
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
-                    {movies.map(movie => (
-                        <div key={movie.id} className="group relative bg-zinc-900 rounded-sm overflow-hidden border border-zinc-800 hover:border-[var(--primary)] transition-all">
-                            <div className="aspect-[2/3] overflow-hidden bg-zinc-900">
-                                {movie.poster_path ? (
-                                    <img src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`} alt={movie.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-zinc-700"><Film size={32} /></div>
-                                )}
-
-                                {isAdmin && (
-                                    <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-4">
-                                        <button
-                                            onClick={() => onImport(movie)}
-                                            className="bg-[var(--primary)] text-black font-bold text-xs uppercase tracking-wider px-4 py-2 rounded-full hover:scale-105 transition-transform flex items-center gap-2"
-                                        >
-                                            <PenTool size={14} /> Write Review
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="p-3">
-                                <h3 className="text-white font-bold text-sm truncate" title={movie.title}>{movie.title}</h3>
-                                <div className="flex items-center justify-between mt-2 text-xs text-zinc-500">
-                                    <span>{movie.release_date ? movie.release_date.split('-')[0] : 'N/A'}</span>
-                                    <span className="flex items-center gap-1 text-[var(--primary)]"><Star size={10} fill="currentColor" /> {movie.vote_average?.toFixed(1)}</span>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8">
+            <Settings size={48} className="text-zinc-600 mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-2">Setup Required</h2>
+            <p className="text-zinc-500 max-w-md">Please enter your TMDB API Key in Settings to enable the Live Movie Browser.</p>
         </div>
     );
+}
+
+const languageList = [
+    { code: '', label: 'Global' },
+    { code: 'hi', label: 'Hindi (India)' },
+    { code: 'te', label: 'Telugu (India)' },
+    { code: 'ta', label: 'Tamil (India)' },
+    { code: 'kn', label: 'Kannada (India)' },
+    { code: 'ml', label: 'Malayalam (India)' },
+    { code: 'mr', label: 'Marathi (India)' },
+    { code: 'bn', label: 'Bengali (India)' },
+    { code: 'pa', label: 'Punjabi (India)' },
+    { code: 'gu', label: 'Gujarati (India)' },
+    { code: 'or', label: 'Odia (India)' }
+];
+
+const genreList = [ // Note: These are Movie IDs. TV IDs differ slightly but overlaps exist. For V1 we use shared or tolerate mismatches.
+    { id: '', name: 'All Genres' },
+    { id: '28', name: 'Action' },
+    { id: '12', name: 'Adventure' },
+    { id: '16', name: 'Animation' },
+    { id: '35', name: 'Comedy' },
+    { id: '80', name: 'Crime' },
+    { id: '99', name: 'Documentary' },
+    { id: '18', name: 'Drama' },
+    { id: '10751', name: 'Family' },
+    { id: '14', name: 'Fantasy' },
+    { id: '36', name: 'History' },
+    { id: '27', name: 'Horror' },
+    { id: '10402', name: 'Music' },
+    { id: '9648', name: 'Mystery' },
+    { id: '10749', name: 'Romance' },
+    { id: '878', name: 'Sci-Fi' },
+    { id: '53', name: 'Thriller' },
+    { id: '10752', name: 'War' },
+    { id: '37', name: 'Western' },
+];
+
+const sortOptions = [
+    { value: 'popularity.desc', label: 'Most Popular' },
+    { value: 'vote_average.desc', label: 'Top Rated' },
+    { value: 'primary_release_date.desc', label: 'Newest First' },
+];
+
+const yearList = Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - i + 1);
+
+const isFiltered = language || year || genre;
+
+return (
+    <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Header / Search */}
+        <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8 sticky top-0 bg-black/90 backdrop-blur z-50 py-4 border-b border-zinc-900">
+
+            <div className="flex flex-col gap-4 w-full md:w-auto">
+
+                {/* Content Type Toggle */}
+                <div className="flex bg-zinc-900 p-1 rounded-full w-fit">
+                    <button
+                        onClick={() => setContentType('movie')}
+                        className={`px-4 py-1 text-xs font-bold rounded-full transition-colors ${contentType === 'movie' ? 'bg-white text-black shadow' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                        Movies
+                    </button>
+                    <button
+                        onClick={() => setContentType('tv')}
+                        className={`px-4 py-1 text-xs font-bold rounded-full transition-colors ${contentType === 'tv' ? 'bg-white text-black shadow' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                        TV Shows
+                    </button>
+                </div>
+
+                {/* Categories / Sort */}
+                <div className="flex gap-2 items-center overflow-x-auto pb-2 md:pb-0">
+                    {!isFiltered ? (
+                        // Dynamic Category Pills based on Type
+                        (contentType === 'movie'
+                            ? ['now_playing', 'popular', 'top_rated', 'upcoming']
+                            : ['on_the_air', 'popular', 'top_rated', 'airing_today']
+                        ).map(cat => (
+                            <button
+                                key={cat}
+                                onClick={() => { setCategory(cat); setSearchQuery(''); }}
+                                className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-colors whitespace-nowrap ${category === cat && !searchQuery ? 'bg-[var(--primary)] text-black' : 'text-zinc-500 hover:text-white'}`}
+                            >
+                                {cat.replace(/_/g, ' ')}
+                            </button>
+                        ))
+                    ) : (
+                        // Show Sort Dropdown when Filtered
+                        <div className="flex items-center gap-2">
+                            <span className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Sort:</span>
+                            <select
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value)}
+                                className="bg-black text-[var(--primary)] text-xs font-bold uppercase tracking-wider outline-none cursor-pointer"
+                            >
+                                {sortOptions.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Filters & Search */}
+            <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto items-center">
+                {/* Filters: Language, Year, Genre */}
+                <select
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value)}
+                    className="bg-zinc-900 border border-zinc-800 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 outline-none focus:border-[var(--primary)] w-full md:w-auto appearance-none cursor-pointer"
+                    style={{ backgroundImage: 'none' }}
+                >
+                    {languageList.map(lang => (
+                        <option key={lang.code} value={lang.code}>{lang.label}</option>
+                    ))}
+                </select>
+
+                <select
+                    value={year}
+                    onChange={(e) => setYear(e.target.value)}
+                    className="bg-zinc-900 border border-zinc-800 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 outline-none focus:border-[var(--primary)] w-full md:w-auto appearance-none cursor-pointer"
+                    style={{ backgroundImage: 'none' }}
+                >
+                    <option value="">Year: All</option>
+                    {yearList.map(y => (
+                        <option key={y} value={y}>{y}</option>
+                    ))}
+                </select>
+
+                <select
+                    value={genre}
+                    onChange={(e) => setGenre(e.target.value)}
+                    className="bg-zinc-900 border border-zinc-800 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 outline-none focus:border-[var(--primary)] w-full md:w-auto appearance-none cursor-pointer"
+                    style={{ backgroundImage: 'none' }}
+                >
+                    {genreList.map(g => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                </select>
+
+                <form onSubmit={handleSearch} className="relative w-full md:w-auto">
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search..."
+                        className="bg-zinc-900 border border-zinc-800 text-white rounded-full py-2 pl-4 pr-10 w-full md:w-64 focus:border-[var(--primary)] outline-none text-sm"
+                    />
+                    <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white">
+                        <Search size={16} />
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        {/* Content */}
+        {loading ? (
+            <div className="flex justify-center py-20"><RefreshCw className="animate-spin text-[var(--primary)]" size={32} /></div>
+        ) : error ? (
+            <div className="text-red-500 text-center py-20">{error}</div>
+        ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                {movies.map(movie => (
+                    <div key={movie.id} className="group relative bg-zinc-900 rounded-sm overflow-hidden border border-zinc-800 hover:border-[var(--primary)] transition-all">
+                        <div className="aspect-[2/3] overflow-hidden bg-zinc-900">
+                            {movie.poster_path ? (
+                                <img src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`} alt={movie.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-zinc-700"><Film size={32} /></div>
+                            )}
+
+                            {isAdmin && (
+                                <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-4">
+                                    <button
+                                        onClick={() => onImport(movie)}
+                                        className="bg-[var(--primary)] text-black font-bold text-xs uppercase tracking-wider px-4 py-2 rounded-full hover:scale-105 transition-transform flex items-center gap-2"
+                                    >
+                                        <PenTool size={14} /> Write Review
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                        <div className="p-3">
+                            <h3 className="text-white font-bold text-sm truncate" title={movie.title}>{movie.title}</h3>
+                            <div className="flex items-center justify-between mt-2 text-xs text-zinc-500">
+                                <span>{movie.release_date ? movie.release_date.split('-')[0] : 'N/A'}</span>
+                                <span className="flex items-center gap-1 text-[var(--primary)]"><Star size={10} fill="currentColor" /> {movie.vote_average?.toFixed(1)}</span>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        )}
+    </div>
+);
 };
 
 const Editor = ({ user, onCancel, onSave, onAI, isAILoading, initialData }) => {
