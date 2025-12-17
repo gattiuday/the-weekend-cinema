@@ -189,8 +189,9 @@ const Navbar = ({ onViewChange, currentView, isAdmin, onLogout, onLoginClick, on
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-20">
                     <div className="flex items-center gap-3 cursor-pointer group" onClick={() => onViewChange('home')}>
-                        <div className="p-2 rounded text-black transform group-hover:rotate-12 transition-transform duration-300 bg-[var(--primary)]">
+                        <div className="p-2 rounded text-black transform group-hover:rotate-12 transition-transform duration-300 bg-[var(--primary)] relative">
                             <Clapperboard size={24} strokeWidth={2.5} />
+                            {isAdmin && <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-zinc-900 animate-pulse" title="Admin Active" />}
                         </div>
                         <div className="flex flex-col">
                             <span className="text-xl font-bold tracking-tighter text-white uppercase font-serif leading-none">The Weekend</span>
@@ -204,7 +205,7 @@ const Navbar = ({ onViewChange, currentView, isAdmin, onLogout, onLoginClick, on
                                 <item.icon size={16} /> {item.label}
                             </button>
                         ))}
-                        {isAdmin && (
+                        {isAdmin ? (
                             <div className="flex items-center gap-3 border-l border-zinc-800 pl-6 ml-2">
                                 <button onClick={onOpenSettings} className="text-zinc-500 hover:text-white transition-colors p-2 hover:bg-zinc-900 rounded-full" title="API Settings"><Settings size={18} /></button>
                                 <div className="flex items-center gap-2 text-[var(--primary)] text-xs font-bold uppercase tracking-wider px-3 py-1 bg-[var(--primary)]/10 rounded-full">
@@ -212,6 +213,10 @@ const Navbar = ({ onViewChange, currentView, isAdmin, onLogout, onLoginClick, on
                                 </div>
                                 <button onClick={onLogout} className="text-zinc-500 hover:text-white transition-colors p-2" title="Logout"><LogOut size={18} /></button>
                             </div>
+                        ) : (
+                            <button onClick={onLoginClick} className="text-zinc-500 hover:text-white text-xs font-bold uppercase tracking-widest border border-zinc-800 px-4 py-2 hover:border-zinc-500 transition-colors rounded-full flex items-center gap-2">
+                                <Lock size={12} /> Staff Login
+                            </button>
                         )}
                     </div>
 
@@ -247,46 +252,164 @@ const Navbar = ({ onViewChange, currentView, isAdmin, onLogout, onLoginClick, on
 };
 
 const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
-    // (Copied verbatim from previous, removed data fetching impl for brevity, assuming standard fetch logic)
-    // To match previous functionality, I'll include the fetch logic but streamlined.
-    const [contentType, setContentType] = useState('movie');
+    const [contentType, setContentType] = useState('movie'); // 'movie' or 'tv'
+    const [region, setRegion] = useState('IN'); // Default to India as per previous preference
+    const [selectedProvider, setSelectedProvider] = useState('all');
     const [movies, setMovies] = useState([]);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [tmdbLoading, setTmdbLoading] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [providers, setProviders] = useState([]);
 
-    // ... Simplified for standard fetch ...
-    const fetchMovies = async (queryStr = '') => {
+    const regions = [
+        { code: 'IN', name: 'India', flag: '🇮🇳' },
+        { code: 'US', name: 'United States', flag: '🇺🇸' },
+        { code: 'GB', name: 'United Kingdom', flag: '🇬🇧' },
+        { code: 'CA', name: 'Canada', flag: '🇨🇦' },
+        { code: 'AU', name: 'Australia', flag: '🇦🇺' },
+        { code: 'JP', name: 'Japan', flag: '🇯🇵' },
+        { code: 'KR', name: 'South Korea', flag: '🇰🇷' }
+    ];
+
+    // Common global providers to filter for
+    const priorityProviders = [8, 119, 337, 384, 122, 2]; // Netflix, Prime, Disney+, HBO, Hotstar, Apple
+
+    useEffect(() => {
+        // Fetch valid providers for this region
+        const fetchProviders = async () => {
+            if (!tmdbKey) return;
+            try {
+                const url = `https://api.themoviedb.org/3/watch/providers/${contentType}?api_key=${tmdbKey}&watch_region=${region}`;
+                const res = await fetch(url);
+                const data = await res.json();
+                // Filter to keep only major ones to avoid clutter
+                const major = data.results.filter(p => priorityProviders.includes(p.provider_id) || p.display_priority < 10);
+                setProviders(major.sort((a, b) => a.display_priority - b.display_priority));
+            } catch (e) { console.error("Provider fetch error", e); }
+        };
+        fetchProviders();
+    }, [tmdbKey, region, contentType]);
+
+    const fetchContent = async () => {
         if (!tmdbKey) return;
-        setTmdbLoading(true);
+        setLoading(true);
         try {
-            // Using a simple popular/search strategy for migration speed
-            let url = `https://api.themoviedb.org/3/${queryStr ? 'search/movie' : 'movie/now_playing'}?api_key=${tmdbKey}&language=en-US&page=1`;
-            if (queryStr) url += `&query=${encodeURIComponent(queryStr)}`;
+            let url = `https://api.themoviedb.org/3/discover/${contentType}?api_key=${tmdbKey}&watch_region=${region}&sort_by=popularity.desc&page=1&vote_count.gte=100`;
+
+            // Filter by provider
+            if (selectedProvider !== 'all') {
+                url += `&with_watch_providers=${selectedProvider}`;
+            } else {
+                // Even for 'all', we prefer to show things that are actually streaming
+                url += `&with_watch_monetization_types=flatrate`;
+            }
+
+            // Freshness filter (released in last 2 years)
+            const d = new Date();
+            d.setFullYear(d.getFullYear() - 2);
+            const dateStr = d.toISOString().split('T')[0];
+
+            if (contentType === 'movie') {
+                url += `&primary_release_date.gte=${dateStr}`;
+            } else {
+                url += `&first_air_date.gte=${dateStr}`;
+            }
 
             const res = await fetch(url);
             const data = await res.json();
             setMovies(data.results || []);
         } catch (e) { console.error(e); }
-        setTmdbLoading(false);
+        setLoading(false);
     };
 
-    useEffect(() => { fetchMovies(searchQuery); }, [tmdbKey, searchQuery]);
-    const handleSearch = (e) => { e.preventDefault(); fetchMovies(searchQuery); };
+    useEffect(() => { fetchContent(); }, [tmdbKey, region, selectedProvider, contentType]);
 
-    if (!tmdbKey) return <div className="text-center p-10 text-zinc-500">Please enter TMDB Key in Settings.</div>;
+    if (!tmdbKey) return <div className="text-center p-10 text-zinc-500">Please enter TMDB Key in Settings to enable the OTT Guide.</div>;
 
     return (
         <div className="max-w-7xl mx-auto px-4 py-8">
-            <form onSubmit={handleSearch} className="mb-6"><input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search TMDB..." className="w-full bg-zinc-900 border border-zinc-800 p-3 rounded text-white" /></form>
-            {tmdbLoading ? <div className="text-white">Loading...</div> :
+            {/* Controls Header */}
+            <div className="flex flex-col md:flex-row gap-6 mb-8 items-start md:items-center justify-between border-b border-zinc-800 pb-6">
+
+                {/* Type & Region */}
+                <div className="flex gap-4">
+                    <div className="bg-zinc-900 p-1 rounded-lg flex border border-zinc-800">
+                        <button onClick={() => setContentType('movie')} className={`px-4 py-2 rounded-md text-xs font-bold uppercase tracking-wider transition-all ${contentType === 'movie' ? 'bg-[var(--primary)] text-black' : 'text-zinc-400 hover:text-white'}`}>
+                            Movies
+                        </button>
+                        <button onClick={() => setContentType('tv')} className={`px-4 py-2 rounded-md text-xs font-bold uppercase tracking-wider transition-all ${contentType === 'tv' ? 'bg-[var(--primary)] text-black' : 'text-zinc-400 hover:text-white'}`}>
+                            TV Shows
+                        </button>
+                    </div>
+
+                    <select
+                        value={region}
+                        onChange={(e) => setRegion(e.target.value)}
+                        className="bg-zinc-900 text-white border border-zinc-800 rounded-lg px-4 py-2 text-sm outline-none focus:border-[var(--primary)]"
+                    >
+                        {regions.map(r => <option key={r.code} value={r.code}>{r.flag} {r.name}</option>)}
+                    </select>
+                </div>
+
+                {/* Provider Scroller */}
+                <div className="flex gap-2 overflow-x-auto pb-2 max-w-full md:max-w-xl scrollbar-hide">
+                    <button
+                        onClick={() => setSelectedProvider('all')}
+                        className={`whitespace-nowrap px-4 py-2 rounded-full border text-xs font-bold uppercase tracking-wider transition-colors ${selectedProvider === 'all' ? 'bg-white text-black border-white' : 'bg-transparent text-zinc-400 border-zinc-700 hover:border-zinc-500'}`}
+                    >
+                        All Apps
+                    </button>
+                    {providers.map(p => (
+                        <button
+                            key={p.provider_id}
+                            onClick={() => setSelectedProvider(p.provider_id)}
+                            className={`flex-shrink-0 p-1 rounded-full border-2 transition-all ${selectedProvider === p.provider_id ? 'border-[var(--primary)] scale-110' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}`}
+                            title={p.provider_name}
+                        >
+                            <img src={`https://image.tmdb.org/t/p/original${p.logo_path}`} className="w-8 h-8 rounded-full" />
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Grid */}
+            {loading ? (
+                <div className="flex justify-center p-20"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[var(--primary)]"></div></div>
+            ) : (
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
-                    {movies.map(movie => (
-                        <div key={movie.id} className="relative group cursor-pointer" onClick={() => isAdmin && onImport(movie)}>
-                            <img src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`} className="w-full h-auto rounded" />
-                            {isAdmin && <div className="absolute inset-0 bg-black/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100">Import</div>}
+                    {movies.map(media => (
+                        <div key={media.id} className="relative group cursor-pointer" onClick={() => isAdmin ? onImport(media) : null}>
+                            <div className="aspect-[2/3] overflow-hidden rounded-md bg-zinc-900 mb-3 relative">
+                                <img
+                                    src={media.poster_path ? `https://image.tmdb.org/t/p/w500${media.poster_path}` : 'https://placehold.co/500x750/222/FFF?text=No+Poster'}
+                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                />
+                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-4 text-center">
+                                    {isAdmin ? (
+                                        <span className="bg-[var(--primary)] text-black font-bold uppercase text-[10px] tracking-widest px-3 py-1 rounded-full">
+                                            Import to Blog
+                                        </span>
+                                    ) : (
+                                        <span className="text-white text-xs font-bold border border-white px-3 py-1 rounded-full">
+                                            View Info
+                                        </span>
+                                    )}
+                                    <div className="mt-2 text-[10px] text-zinc-300">
+                                        ⭐ {media.vote_average?.toFixed(1)}/10
+                                    </div>
+                                </div>
+                                <div className="absolute top-2 left-2">
+                                    {getPlatformColor(selectedProvider !== 'all' ? providers.find(p => p.provider_id === selectedProvider)?.provider_name : 'Streaming') !== 'bg-zinc-700 text-white' && (
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded shadow ${getPlatformColor(selectedProvider !== 'all' ? providers.find(p => p.provider_id === selectedProvider)?.provider_name : '')}`}>
+                                            {selectedProvider !== 'all' ? 'STREAMING' : ''}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                            <h3 className="text-white font-serif text-sm leading-tight group-hover:text-[var(--primary)] transition-colors">{media.title || media.name}</h3>
+                            <p className="text-zinc-500 text-xs mt-1 truncate">{media.release_date || media.first_air_date ? new Date(media.release_date || media.first_air_date).getFullYear() : 'N/A'}</p>
                         </div>
                     ))}
-                </div>}
+                </div>
+            )}
         </div>
     );
 };
@@ -446,7 +569,7 @@ const App = () => {
         }
 
         setPosts(newPosts);
-        alert("Post Saved Locally! \n\nA 'posts.json' file has been downloaded.\n1. Go to your project folder.\n2. Replace the old 'posts.json' with this new one.\n3. Push to GitHub.");
+        alert("✅ PREVIEW MODE: Post visible in browser.\n\nTo make it permanent live:\n1. A 'posts.json' file has downloaded.\n2. Replace the file in your project folder.\n3. git commit & push.");
         downloadJSON(newPosts);
         setView('home');
     };
