@@ -783,8 +783,6 @@ const App = () => {
     const [isAdmin, setIsAdmin] = useState(false); // Security: Disabled by default
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
-    const [showLoginModal, setShowLoginModal] = useState(false);
-    const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [tmdbKey, setTmdbKey] = useState('');
     const [geminiKey, setGeminiKey] = useState('');
     const [isAILoading, setIsAILoading] = useState(false);
