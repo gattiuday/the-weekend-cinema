@@ -71,63 +71,49 @@
   <script type="module">
     async function loadApp() {
       try {
-        // --- 1. Load Configuration Globally ---
-        let configCode = '';
+        // 1. Fetch Config (or Fallback)
+        let configText = '';
         try {
           const r = await fetch('./config.js');
-          if (r.ok) configCode = await r.text();
+          if (r.ok) configText = await r.text();
           else throw new Error('config.js missing');
         } catch (e) {
           console.warn("Using fallback config");
           try {
             const r2 = await fetch('./config.example.js');
-            if (r2.ok) configCode = await r2.text();
+            if (r2.ok) configText = await r2.text();
             else throw e;
           } catch (e2) {
-            // Hard fallback
-            configCode = 'export const FIREBASE_CONFIG = { apiKey: "demo" }; export const APP_ID = "demo"; export const TMDB_KEY = "";';
+            configText = 'export const FIREBASE_CONFIG = { apiKey: "demo" }; export const APP_ID = "demo"; export const TMDB_KEY = "";';
           }
         }
 
-        // Transform "export const" to just "const" and expose to window
-        configCode = configCode.replace(/export\s+const\s+/g, 'const ');
-        configCode += '\nwindow.TWC_CONFIG = { FIREBASE_CONFIG, APP_ID, TMDB_KEY: (typeof TMDB_KEY !== "undefined" ? TMDB_KEY : "") };';
+        // Create a real ES Module from the config text
+        const configBlob = new Blob([configText], { type: 'text/javascript' });
+        const configUrl = URL.createObjectURL(configBlob);
 
-        // Execute Config Immediately
-        const configScript = document.createElement('script');
-        configScript.textContent = configCode;
-        document.head.appendChild(configScript);
-
-
-        // --- 2. Load and Transform App ---
+        // 2. Fetch App
         const response = await fetch('./App.js');
         if (!response.ok) throw new Error(`Failed to load App.js: ${response.statusText}`);
         let appCode = await response.text();
 
-        // REPLACEMENT: Instead of importing from file, grab from Global Object
-        // Matches: import { A, B } from './config.js';
-        const configImportRegex = /import\s+\{([^}]+)\}\s+from\s+['"]\.\/config\.js['"];?/;
+        // 3. Replace relative import with the Blob URL
+        // From: import ... from './config.js';
+        // To:   import ... from 'blob:http://...';
+        // This preserves the module graph perfectly!
+        appCode = appCode.replace(/['"]\.\/config\.js['"]/, `'${configUrl}'`);
 
-        // We replace it with: const { A, B } = window.TWC_CONFIG;
-        // checking if match exists to avoid error
-        if (configImportRegex.test(appCode)) {
-          appCode = appCode.replace(configImportRegex, 'const { $1 } = window.TWC_CONFIG;');
-        } else {
-          console.warn("Could not find config import in App.js to replace");
-        }
-
-        // --- 3. Babel Transform (React Only, No Env) ---
-        // We rely on browser native ES modules for imports
+        // 4. Transform JSX (React only)
         const output = Babel.transform(appCode, {
           presets: [['react', { runtime: 'classic' }]],
           filename: 'App.js',
         });
 
-        // --- 4. Execute App ---
-        const blob = new Blob([output.code], { type: 'text/javascript' });
-        const url = URL.createObjectURL(blob);
-        await import(url);
-        console.log("App loaded via Global Config Strategy");
+        // 5. Run App
+        const appBlob = new Blob([output.code], { type: 'text/javascript' });
+        const appUrl = URL.createObjectURL(appBlob);
+        await import(appUrl);
+        console.log("App loaded via Blob Module Strategy");
 
       } catch (err) {
         console.error("Critical Boot Error:", err);
