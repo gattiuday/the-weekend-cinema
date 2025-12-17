@@ -741,10 +741,17 @@ const App = () => {
                 }
             } catch (err) {
                 console.error("Auth error", err);
+                // If auth fails (e.g. missing config), stop loading so user sees the app
+                setLoading(false);
             }
         };
         initAuth();
-        const unsubscribe = onAuthStateChanged(auth, setUser);
+
+        const unsubscribe = onAuthStateChanged(auth, (u) => {
+            setUser(u);
+            // If we have no user (logged out or auth failed), stop loading
+            if (!u) setLoading(false);
+        });
         return () => unsubscribe();
     }, []);
 
@@ -765,9 +772,14 @@ const App = () => {
 
     // 3. Data Fetching
     useEffect(() => {
-        if (!user) return;
+        if (!user) {
+            // If no user, ensure we aren't loading indefinitely
+            setLoading(false);
+            return;
+        }
 
         // Fetch Articles
+        setLoading(true); // Start loading when fetching posts
         const qPosts = query(
             collection(db, 'artifacts', appId, 'public', 'data', 'posts'),
             orderBy('createdAt', 'desc')
@@ -780,6 +792,9 @@ const App = () => {
             }));
             setPosts(fetchedPosts);
             setLoading(false);
+        }, (error) => {
+            console.error("Data fetch error:", error);
+            setLoading(false); // Stop loading on error
         });
 
         return () => {
