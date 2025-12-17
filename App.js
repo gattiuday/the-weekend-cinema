@@ -679,8 +679,8 @@ const App = () => {
             - A final verdict/rating explanation.
             Keep it under 300 words. Use Markdown formatting.`;
 
-            // Using gemini-1.5-flash for better speed and fewer random errors
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+            // Fallback to gemini-pro if flash is unavailable
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
