@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Weekend Cinema</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Import Map for React and Firebase -->
+  {
+  "imports": {
+  "react": "https://esm.sh/react@18.2.0",
+  "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+  "firebase/app": "https://esm.sh/firebase@10.7.1/app",
+  "firebase/auth": "https://esm.sh/firebase@10.7.1/auth",
+  "firebase/firestore": "https://esm.sh/firebase@10.7.1/firestore",
+  "lucide-react": "https://esm.sh/lucide-react@0.294.0"
+  }
+  }
+  </script>
+
+  <!-- Crash Reporter -->
+  <script>
+    window.onerror = function (msg, url, lineNo, columnNo, error) {
+      const errorDiv = document.createElement('div');
+      errorDiv.style.position = 'fixed';
+      errorDiv.style.top = '0';
+      errorDiv.style.left = '0';
+      errorDiv.style.width = '100%';
+      errorDiv.style.background = 'red';
+      errorDiv.style.color = 'white';
+      errorDiv.style.padding = '20px';
+      errorDiv.style.zIndex = '9999';
+      errorDiv.textContent = `Error: ${msg} at ${lineNo}:${columnNo}`;
+      document.body.appendChild(errorDiv);
+      return false;
+    };
+    // Also catch unhandled promise rejections
+    window.onunhandledrejection = function (event) {
+      const errorDiv = document.createElement('div');
+      errorDiv.style.position = 'fixed';
+      errorDiv.style.top = '50px'; // Offset from previous
+      errorDiv.style.left = '0';
+      errorDiv.style.width = '100%';
+      errorDiv.style.background = 'orange';
+      errorDiv.style.color = 'white';
+      errorDiv.style.padding = '20px';
+      errorDiv.style.zIndex = '9999';
+      errorDiv.textContent = `Promise Rejection: ${event.reason}`;
+      document.body.appendChild(errorDiv);
+    };
+  </script>
+
+  <!-- Babel Standalone for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin="anonymous"></script>
+
+  <!-- Configuration Loader Removed (Consumed directly by App.js) -->
+</head>
+
+<body class="bg-black text-white">
+  <div id="root"></div>
+
+  <!-- Manual Loader for App.js -->
+  <script type="module">
+    async function loadApp() {
+      try {
+        // 1. Fetch Config
+        const configResp = await fetch('./config.js');
+        if (!configResp.ok) throw new Error('Failed to load config.js');
+        const configText = await configResp.text();
+
+        // Remove 'export' keywords to make it valid inline script code
+        // and ensure we don't have duplicate declarations if we were to simply concat.
+        // Simple regex to basic 'export const' -> 'const'
+        const cleanConfig = configText.replace(/export\s+const/g, 'const');
+
+        // 2. Fetch App
+        const response = await fetch('./App.js');
+        if (!response.ok) throw new Error(`Failed to load App.js: ${response.statusText}`);
+        let code = await response.text();
+
+        // 3. Inline Config (Replace import with actual code)
+        // We look for: import { ... } from './config.js'; or similar
+        // And replace it with the cleaned config code.
+        const configImportRegex = /import\s+{.*}\s+from\s+['"]\.\/config\.js['"];?/;
+        code = code.replace(configImportRegex, cleanConfig);
+
+        // 4. Manually resolve external imports
+        const IMPORTS = {
+          'react': 'https://esm.sh/react@18.2.0',
+          'react-dom/client': 'https://esm.sh/react-dom@18.2.0/client',
+          'firebase/app': 'https://esm.sh/firebase@10.7.1/app',
+          'firebase/auth': 'https://esm.sh/firebase@10.7.1/auth?deps=firebase@10.7.1',
+          'firebase/firestore': 'https://esm.sh/firebase@10.7.1/firestore?deps=firebase@10.7.1',
+          'lucide-react': 'https://esm.sh/lucide-react@0.294.0'
+        };
+
+        for (const [key, value] of Object.entries(IMPORTS)) {
+          const regex = new RegExp(`from\\s+['"]${key}['"]`, 'g');
+          code = code.replace(regex, `from '${value}'`);
+        }
+
+        // Transpile JSX to JS, but keep ES modules (import/export) intact
+        // We assume Babel is loaded globally via the script tag above
+        const output = Babel.transform(code, {
+          presets: [['react', { runtime: 'classic' }]], // Use classic runtime for simple CDN setup or 'automatic' if properly configured
+          filename: 'App.js',
+        });
+
+        // Create a blob URL for the transpiled code
+        const blob = new Blob([output.code], { type: 'text/javascript' });
+        const url = URL.createObjectURL(blob);
+
+        // Dynamic import of the transpiled module
+        await import(url);
+
+        console.log("App loaded successfully via manual loader");
+      } catch (err) {
+        console.error("Failed to load/transpile App:", err);
+        // Report to crash reporter if available
+        if (window.onerror) window.onerror(err.message, 'loader', 0, 0, err);
+      }
+    }
+    loadApp();
+  </script>
+</body>
+
+</html>
