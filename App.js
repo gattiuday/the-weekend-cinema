@@ -725,7 +725,7 @@ const App = () => {
     const [selectedPost, setSelectedPost] = useState(null);
     const [loading, setLoading] = useState(true);
     const [themeColor, setThemeColor] = useState('#f59e0b'); // Default Amber
-    const [isAdmin, setIsAdmin] = useState(true); // Preview Mode: Enabled by default
+    const [isAdmin, setIsAdmin] = useState(false); // Security: Disabled by default
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [tmdbKey, setTmdbKey] = useState('');
@@ -753,8 +753,9 @@ const App = () => {
         try {
             const savedTheme = localStorage.getItem('twc_theme');
             if (savedTheme) setThemeColor(savedTheme);
-            const savedAdmin = localStorage.getItem('twc_admin');
-            if (savedAdmin === 'true') setIsAdmin(true);
+            // Security: Do NOT load admin state from local storage
+            // const savedAdmin = localStorage.getItem('twc_admin');
+            // if (savedAdmin === 'true') setIsAdmin(true);
             const savedKey = localStorage.getItem('tmdb_key');
             if (savedKey) setTmdbKey(savedKey);
         } catch (e) {
@@ -794,7 +795,8 @@ const App = () => {
 
     const handleAdminLogin = () => {
         setIsAdmin(true);
-        localStorage.setItem('twc_admin', 'true');
+        // Security: Do NOT persist admin state
+        // localStorage.setItem('twc_admin', 'true');
     };
 
     const handleAdminLogout = () => {
