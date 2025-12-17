@@ -830,7 +830,43 @@ const App = () => {
         setTmdbKey(key);
         localStorage.setItem('tmdb_key', key);
         setShowSettingsModal(false);
-        alert("API Key Saved! You can now sync official trends.");
+        // alert("API Key Saved! You can now sync official trends.");
+    };
+
+    const handleSyncTrends = async (key) => {
+        if (!user || !isAdmin) return;
+        try {
+            const resp = await fetch(`https://api.themoviedb.org/3/trending/movie/week?api_key=${key}`);
+            if (!resp.ok) throw new Error("Failed to fetch from TMDB");
+            const data = await resp.json();
+
+            const batch = writeBatch(db);
+            let count = 0;
+
+            for (const movie of data.results.slice(0, 5)) { // Top 5 only
+                const docRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'));
+                const postData = {
+                    title: movie.title,
+                    content: movie.overview,
+                    excerpt: movie.overview,
+                    imageUrl: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : `https://image.tmdb.org/t/p/w500${movie.poster_path}`,
+                    category: 'Trending',
+                    rating: Math.round(movie.vote_average / 2), // 10 -> 5 scale
+                    author: 'TMDB Bot',
+                    userId: user.uid,
+                    createdAt: serverTimestamp(),
+                    tmdbId: movie.id
+                };
+                batch.set(docRef, postData);
+                count++;
+            }
+            await batch.commit();
+            alert(`Sync Complete! Added ${count} trending movies.`);
+            setShowSettingsModal(false);
+        } catch (err) {
+            console.error("Sync error:", err);
+            alert("Sync Failed: " + err.message);
+        }
     };
 
     const handleSavePost = async (postData) => {
