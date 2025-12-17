@@ -1141,7 +1141,7 @@ const App = () => {
 
     const handleImportMovie = (movie) => {
         setDraftPost({
-            title: movie.title,
+            title: movie.title || movie.name,
             content: movie.overview,
             excerpt: movie.overview,
             imageUrl: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : `https://image.tmdb.org/t/p/w500${movie.poster_path}`,
