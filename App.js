@@ -754,8 +754,6 @@ const App = () => {
         try {
             const savedTheme = localStorage.getItem('twc_theme');
             if (savedTheme) setThemeColor(savedTheme);
-            const savedAdmin = localStorage.getItem('twc_admin');
-            if (savedAdmin === 'true') setIsAdmin(true);
             const savedKey = localStorage.getItem('tmdb_key');
             if (savedKey) setTmdbKey(savedKey);
         } catch (e) {
@@ -795,7 +793,6 @@ const App = () => {
 
     const handleAdminLogin = () => {
         setIsAdmin(true);
-        localStorage.setItem('twc_admin', 'true');
     };
 
     const handleAdminLogout = () => {
