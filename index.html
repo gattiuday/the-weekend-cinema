@@ -77,14 +77,19 @@
             throw new Error('config.js missing');
           }
         } catch (e) {
-          console.warn("config.js not found, falling back to example config");
-          const exampleResp = await fetch('./config.example.js');
-          if (exampleResp.ok) {
-             configText = await exampleResp.text();
-          } else {
-             // Ultimate fallback if even example is missing (unlikely)
-             configText = `
-               const FIREBASE_CONFIG = { apiKey: "demo" }; 
+          console.warn("config.js load failed, attempting fallback...", e);
+          try {
+            const exampleResp = await fetch('./config.example.js');
+            if (exampleResp.ok) {
+              configText = await exampleResp.text();
+            } else {
+              throw new Error('config.example.js missing');
+            }
+          } catch (e2) {
+            console.error("Critical: All config files missing. Using hardcoded fallback.", e2);
+            // Absolute safety net
+            configText = `
+               const FIREBASE_CONFIG = { apiKey: "demo", authDomain: "demo", projectId: "demo" }; 
                const APP_ID = "demo"; 
                const TMDB_KEY = "";
              `;
@@ -102,7 +107,7 @@
         // 3. Inline Config (Replace import with actual code)
         // We look for: import { ... } from './config.js'; or similar
         // And replace it with the cleaned config code.
-        const configImportRegex = /import\s+{.*}\s+from\s+['"]\.\/config\.js['"];?/;
+        const configImportRegex = /import\s+[\s\S]*?\s+from\s+['"]\.\/config\.js['"];?/;
         code = code.replace(configImportRegex, cleanConfig);
 
         // 4. Manually resolve external imports
