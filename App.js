@@ -418,7 +418,8 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        fetchMovies();
+        // fetchMovies(); // Disabled for debugging
+        console.log("OTTView mounted");
     }, [category, tmdbKey, language, year, genre]);
 
     const fetchMovies = async (query = '') => {
