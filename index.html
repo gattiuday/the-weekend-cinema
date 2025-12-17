@@ -72,39 +72,54 @@
     async function loadApp() {
       try {
         // 1. Fetch Config
-        let configModule;
+        let values = { FIREBASE_CONFIG: { apiKey: 'demo' }, APP_ID: 'demo', TMDB_KEY: '' };
         try {
-          // Use the Blob Import Strategy to load config as a module
-          const r = await fetch('./config.js');
+          // Fetch text
           let configText = '';
+          const r = await fetch('./config.js');
           if (r.ok) {
             configText = await r.text();
           } else {
-            // Fallback
-            console.warn("config.js missing, using callback");
+            console.warn("config.js missing, using example");
             const r2 = await fetch('./config.example.js');
             if (r2.ok) configText = await r2.text();
-            else throw new Error("No config found");
           }
 
-          const configBlob = new Blob([configText], { type: 'text/javascript' });
-          const configUrl = URL.createObjectURL(configBlob);
-          configModule = await import(configUrl);
+          if (configText) {
+            // Robust Extraction: Strip 'export' keywords to avoid syntax errors in Function()
+            // and manually return the variables we need.
+            const cleanConfig = configText
+              .replace(/export\s+const/g, 'const')
+              .replace(/export\s+let/g, 'let')
+              .replace(/export\s+var/g, 'var')
+              .replace(/export\s+default/g, ''); // basic cleanup
 
+            // Wrap in a function that returns the values. 
+            // We use a try/catch inside the function function to be safe if a var is missing.
+            const extractor = new Function(`
+                ${cleanConfig}
+                return { 
+                  FIREBASE_CONFIG: (typeof FIREBASE_CONFIG !== 'undefined' ? FIREBASE_CONFIG : undefined),
+                  APP_ID: (typeof APP_ID !== 'undefined' ? APP_ID : undefined),
+                  TMDB_KEY: (typeof TMDB_KEY !== 'undefined' ? TMDB_KEY : undefined)
+                };
+             `);
+
+            const extracted = extractor();
+            if (extracted.FIREBASE_CONFIG) values.FIREBASE_CONFIG = extracted.FIREBASE_CONFIG;
+            if (extracted.APP_ID) values.APP_ID = extracted.APP_ID;
+            if (extracted.TMDB_KEY) values.TMDB_KEY = extracted.TMDB_KEY;
+          }
         } catch (e) {
-          console.error("Config load failed", e);
-          // Hard fallback for globals
-          configModule = {
-            FIREBASE_CONFIG: { apiKey: "demo" },
-            APP_ID: "demo",
-            TMDB_KEY: ""
-          };
+          console.error("Config extraction failed:", e);
         }
 
-        // 2. INJECT GLOBALS (To support user's legacy App.js code)
-        window.__firebase_config = JSON.stringify(configModule.FIREBASE_CONFIG);
-        window.__app_id = configModule.APP_ID;
-        window.TMDB_KEY = configModule.TMDB_KEY;
+        // 2. INJECT GLOBALS (Critical for User's Code)
+        window.__firebase_config = JSON.stringify(values.FIREBASE_CONFIG);
+        window.__app_id = values.APP_ID;
+        window.TMDB_KEY = values.TMDB_KEY;
+
+        console.log("Globals Injected:", { appId: window.__app_id, tmdb: !!window.TMDB_KEY });
 
         // 3. Fetch App
         const response = await fetch('./App.js');
