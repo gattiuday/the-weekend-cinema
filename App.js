@@ -589,9 +589,18 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
             </div>
 
             {/* Debug Info */}
-            <div className="text-xs text-zinc-600 font-mono mb-4 break-all">
-                KEY: {tmdbKey ? 'OK' : 'MISSING'} | MOVIES: {movies.length} |
-                URL: {loading ? 'Fetching...' : error ? 'Error' : 'Ready'}
+            <div className="text-xs text-zinc-600 font-mono mb-4 flex gap-4 items-center">
+                <span className="break-all">
+                    KEY: {tmdbKey ? `${tmdbKey.substring(0, 4)}... (Length: ${tmdbKey.length})` : 'MISSING'} |
+                    MOVIES: {movies.length} |
+                    STATUS: {loading ? 'Loading...' : error ? error : 'Idle'}
+                </span>
+                <button
+                    onClick={() => fetchMovies('Avatar')}
+                    className="bg-zinc-800 px-2 py-1 rounded hover:bg-zinc-700"
+                >
+                    Test Connection
+                </button>
             </div>
 
             {/* Content */}
