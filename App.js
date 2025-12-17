@@ -670,8 +670,8 @@ const App = () => {
     const handleAI = async (title) => {
         if (!geminiKey) { alert("Please set your Gemini API Key in Settings first."); return null; }
         setLoading(true);
-        try {
-            const prompt = `Write a passionate, engaging, and professional movie review for the film "${title}". 
+
+        const prompt = `Write a passionate, engaging, and professional movie review for the film "${title}". 
             Format:
             - A catchy headline (distinct from title).
             - An exciting introduction without spoilers.
@@ -679,42 +679,47 @@ const App = () => {
             - A final verdict/rating explanation.
             Keep it under 300 words. Use Markdown formatting.`;
 
-            // Fallback to gemini-pro if flash is unavailable
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-            });
+        const models = ['gemini-1.5-flash', 'gemini-pro', 'gemini-1.5-pro-latest'];
+        let lastError = null;
 
-            const data = await response.json();
+        for (const model of models) {
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
 
-            // Check for API errors
-            if (data.error) {
-                throw new Error(data.error.message || "API Error");
-            }
+                const data = await response.json();
 
-            // Check for safety blocks
-            if (data.promptFeedback?.blockReason) {
-                throw new Error(`Blocked: ${data.promptFeedback.blockReason}`);
-            }
-
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-            setLoading(false);
-            if (text) return text;
-            else {
-                console.error("Full AI Response:", data);
-                if (data.candidates?.[0]?.finishReason) {
-                    throw new Error(`Generation stopped: ${data.candidates[0].finishReason}`);
+                if (data.error) {
+                    const msg = data.error.message || "";
+                    if (msg.includes("not found") || msg.includes("not supported")) {
+                        console.warn(`Model ${model} unavailable. Retrying...`);
+                        lastError = msg;
+                        continue;
+                    }
+                    throw new Error(msg);
                 }
-                throw new Error("No text generated (Unknown reason)");
+
+                if (data.promptFeedback?.blockReason) {
+                    throw new Error(`Safety Block: ${data.promptFeedback.blockReason}`);
+                }
+
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                    setLoading(false);
+                    return text;
+                }
+            } catch (e) {
+                console.error(`AI Error (${model}):`, e);
+                lastError = e.message;
             }
-        } catch (e) {
-            console.error(e);
-            setLoading(false);
-            alert("AI Error: " + e.message);
-            return null;
         }
+
+        setLoading(false);
+        alert(`AI Generation Failed.\nReason: ${lastError}`);
+        return null;
     };
 
     const featuredPost = posts[0];
