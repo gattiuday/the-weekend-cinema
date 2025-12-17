@@ -588,6 +588,11 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
                 </div>
             </div>
 
+            {/* Debug Info */}
+            <div className="text-xs text-zinc-600 font-mono mb-4">
+                API Key Present: {tmdbKey ? 'Yes' : 'No'} | Movies: {movies.length} | Loading: {loading ? 'Yes' : 'No'} | Error: {error || 'None'}
+            </div>
+
             {/* Content */}
             {loading ? (
                 <div className="flex justify-center py-20"><RefreshCw className="animate-spin text-[var(--primary)]" size={32} /></div>
