@@ -763,8 +763,14 @@ const App = () => {
             // Security: Do NOT load admin state from local storage
             // const savedAdmin = localStorage.getItem('twc_admin');
             // if (savedAdmin === 'true') setIsAdmin(true);
+
             const savedKey = localStorage.getItem('tmdb_key');
-            if (savedKey) setTmdbKey(savedKey);
+            if (savedKey) {
+                setTmdbKey(savedKey);
+            } else if (typeof window.TMDB_KEY !== 'undefined' && window.TMDB_KEY) {
+                // Feature: Use global config key if no local override exists
+                setTmdbKey(window.TMDB_KEY);
+            }
         } catch (e) {
             console.warn("Could not load local settings", e);
         }
