@@ -125,6 +125,13 @@
 
         console.log("Globals Injected:", { appId: window.__app_id, tmdb: !!window.TMDB_KEY });
 
+        // CONFIG VALIDATION
+        if (values.FIREBASE_CONFIG.apiKey === "YOUR_FIREBASE_API_KEY" || values.FIREBASE_CONFIG.apiKey === "demo") {
+          const msg = "DATABASE NOT CONFIGURED: You are using placeholder credentials. You must edit config.js with your real Firebase keys.";
+          alert(msg);
+          throw new Error(msg);
+        }
+
         // 3. Fetch App
         const response = await fetch('./App.js?t=' + Date.now());
         if (!response.ok) throw new Error(`Failed to load App.js: ${response.statusText}`);
