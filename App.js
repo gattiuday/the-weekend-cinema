@@ -1276,7 +1276,7 @@ const App = () => {
             setView('home');
         } catch (err) {
             console.error("Error saving post:", err);
-            alert("Failed to publish article. Please try again.");
+            alert("Failed to publish article: " + err.message);
         }
     };
 
