@@ -215,8 +215,16 @@ const AdminLoginModal = ({ onClose, onLogin }) => {
     );
 };
 
-const SettingsModal = ({ onClose, onSave, initialKey }) => {
+const SettingsModal = ({ onClose, onSave, onSync, initialKey }) => {
     const [key, setKey] = useState(initialKey || '');
+    const [isSyncing, setIsSyncing] = useState(false);
+
+    const handleSyncClick = async () => {
+        if (!key) return;
+        setIsSyncing(true);
+        await onSync(key);
+        setIsSyncing(false);
+    };
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
@@ -243,12 +251,22 @@ const SettingsModal = ({ onClose, onSave, initialKey }) => {
                         </p>
                     </div>
 
-                    <button
-                        onClick={() => onSave(key)}
-                        className="w-full py-3 bg-[var(--primary)] text-black font-bold uppercase tracking-wider rounded-sm hover:opacity-90 mt-4"
-                    >
-                        Save Configuration
-                    </button>
+                    <div className="flex gap-3 mt-6">
+                        <button
+                            onClick={handleSyncClick}
+                            disabled={!key || isSyncing}
+                            className="flex-1 py-3 bg-zinc-800 text-white font-bold uppercase tracking-wider rounded-sm hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                        >
+                            {isSyncing ? <RefreshCw className="animate-spin" size={16} /> : <Download size={16} />}
+                            {isSyncing ? 'Syncing...' : 'Sync Trends'}
+                        </button>
+                        <button
+                            onClick={() => onSave(key)}
+                            className="flex-1 py-3 bg-[var(--primary)] text-black font-bold uppercase tracking-wider rounded-sm hover:opacity-90"
+                        >
+                            Save
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
