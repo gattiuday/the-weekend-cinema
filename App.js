@@ -744,7 +744,10 @@ const Editor = ({ user, onCancel, onSave, onAI, isAILoading, initialData }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!title || !content) return;
+        console.log("Submitting...", { title, contentLen: content?.length });
+
+        if (!title) { alert("Title is required!"); return; }
+        if (!content) { alert("Content is required!"); return; }
 
         setIsSaving(true);
         try {
