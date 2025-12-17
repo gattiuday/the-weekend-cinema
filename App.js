@@ -851,8 +851,8 @@ const App = () => {
 
     const handleAdminLogin = () => {
         setIsAdmin(true);
-        // Security: Do NOT persist admin state
-        // localStorage.setItem('twc_admin', 'true');
+        // Persist admin state
+        localStorage.setItem('twc_admin', 'true');
     };
 
     const handleAdminLogout = () => {
