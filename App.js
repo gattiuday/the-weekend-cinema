@@ -1005,7 +1005,7 @@ const App = () => {
                             onSave={handleSavePost}
                         />
                     ) : view === 'ott' ? (
-                        <OTTView />
+                        <OTTView movies={guideMovies} />
                     ) : (
                         <main>
                             {posts.length > 0 ? (
