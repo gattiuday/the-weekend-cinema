@@ -253,20 +253,28 @@ const Navbar = ({ onViewChange, currentView, isAdmin, onLogout, onLoginClick, on
 
 const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
     const [contentType, setContentType] = useState('movie'); // 'movie' or 'tv'
-    const [region, setRegion] = useState('IN'); // Default to India as per previous preference
+    const [lang, setLang] = useState('en');
     const [selectedProvider, setSelectedProvider] = useState('all');
     const [movies, setMovies] = useState([]);
     const [loading, setLoading] = useState(false);
     const [providers, setProviders] = useState([]);
 
-    const regions = [
-        { code: 'IN', name: 'India', flag: '🇮🇳' },
-        { code: 'US', name: 'United States', flag: '🇺🇸' },
-        { code: 'GB', name: 'United Kingdom', flag: '🇬🇧' },
-        { code: 'CA', name: 'Canada', flag: '🇨🇦' },
-        { code: 'AU', name: 'Australia', flag: '🇦🇺' },
-        { code: 'JP', name: 'Japan', flag: '🇯🇵' },
-        { code: 'KR', name: 'South Korea', flag: '🇰🇷' }
+    // Fixed region for providers (India)
+    const REGION = 'IN';
+
+    const languages = [
+        { code: 'en', name: 'English' },
+        { code: 'hi', name: 'Hindi' },
+        { code: 'te', name: 'Telugu' },
+        { code: 'ta', name: 'Tamil' },
+        { code: 'ml', name: 'Malayalam' },
+        { code: 'kn', name: 'Kannada' },
+        { code: 'fr', name: 'French' },
+        { code: 'de', name: 'German' },
+        { code: 'es', name: 'Spanish' },
+        { code: 'ko', name: 'Korean' },
+        { code: 'ja', name: 'Japanese' },
+        { code: 'zh', name: 'Chinese' }
     ];
 
     // Common global providers to filter for
@@ -277,7 +285,7 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
         const fetchProviders = async () => {
             if (!tmdbKey) return;
             try {
-                const url = `https://api.themoviedb.org/3/watch/providers/${contentType}?api_key=${tmdbKey}&watch_region=${region}`;
+                const url = `https://api.themoviedb.org/3/watch/providers/${contentType}?api_key=${tmdbKey}&watch_region=${REGION}`;
                 const res = await fetch(url);
                 const data = await res.json();
                 // Filter to keep only major ones to avoid clutter
@@ -286,13 +294,18 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
             } catch (e) { console.error("Provider fetch error", e); }
         };
         fetchProviders();
-    }, [tmdbKey, region, contentType]);
+    }, [tmdbKey, contentType]);
 
     const fetchContent = async () => {
         if (!tmdbKey) return;
         setLoading(true);
         try {
-            let url = `https://api.themoviedb.org/3/discover/${contentType}?api_key=${tmdbKey}&watch_region=${region}&sort_by=popularity.desc&page=1&vote_count.gte=100`;
+            let url = `https://api.themoviedb.org/3/discover/${contentType}?api_key=${tmdbKey}&watch_region=${REGION}&sort_by=popularity.desc&page=1&vote_count.gte=100`;
+
+            // Filter by Language
+            if (lang !== 'all') {
+                url += `&with_original_language=${lang}`;
+            }
 
             // Filter by provider
             if (selectedProvider !== 'all') {
@@ -320,7 +333,7 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
         setLoading(false);
     };
 
-    useEffect(() => { fetchContent(); }, [tmdbKey, region, selectedProvider, contentType]);
+    useEffect(() => { fetchContent(); }, [tmdbKey, lang, selectedProvider, contentType]);
 
     if (!tmdbKey) return <div className="text-center p-10 text-zinc-500">Please enter TMDB Key in Settings to enable the OTT Guide.</div>;
 
@@ -341,11 +354,11 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
                     </div>
 
                     <select
-                        value={region}
-                        onChange={(e) => setRegion(e.target.value)}
-                        className="bg-zinc-900 text-white border border-zinc-800 rounded-lg px-4 py-2 text-sm outline-none focus:border-[var(--primary)]"
+                        value={lang}
+                        onChange={(e) => setLang(e.target.value)}
+                        className="bg-zinc-900 text-white border border-zinc-800 rounded-lg px-4 py-2 text-sm outline-none focus:border-[var(--primary)] capitalize"
                     >
-                        {regions.map(r => <option key={r.code} value={r.code}>{r.flag} {r.name}</option>)}
+                        {languages.map(l => <option key={l.code} value={l.code}>{l.name}</option>)}
                     </select>
                 </div>
 
@@ -606,22 +619,40 @@ const App = () => {
             - A final verdict/rating explanation.
             Keep it under 300 words. Use Markdown formatting.`;
 
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiKey}`, {
+            // Using gemini-1.5-flash for better speed and fewer random errors
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
             });
 
             const data = await response.json();
+
+            // Check for API errors
+            if (data.error) {
+                throw new Error(data.error.message || "API Error");
+            }
+
+            // Check for safety blocks
+            if (data.promptFeedback?.blockReason) {
+                throw new Error(`Blocked: ${data.promptFeedback.blockReason}`);
+            }
+
             const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
             setLoading(false);
             if (text) return text;
-            else throw new Error("No text generated");
+            else {
+                console.error("Full AI Response:", data);
+                if (data.candidates?.[0]?.finishReason) {
+                    throw new Error(`Generation stopped: ${data.candidates[0].finishReason}`);
+                }
+                throw new Error("No text generated (Unknown reason)");
+            }
         } catch (e) {
             console.error(e);
             setLoading(false);
-            alert("AI Generation Failed: " + e.message);
+            alert("AI Error: " + e.message);
             return null;
         }
     };
