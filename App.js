@@ -1259,7 +1259,10 @@ const App = () => {
     };
 
     const handleSavePost = async (postData) => {
-        if (!user) return;
+        if (!user) {
+            alert("Error: No active session. Please reload the page.");
+            return;
+        }
         try {
             if (postData.id) {
                 // Update existing
