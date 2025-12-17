@@ -145,29 +145,41 @@ const AdminLoginModal = ({ onClose, onLogin }) => {
     );
 };
 
-const SettingsModal = ({ onClose, onSave, onSync, initialKey, initialGeminiKey }) => {
+const SettingsModal = ({ onClose, onSave, onSync, initialKey, initialGeminiKey, initialGithubToken, initialGithubRepo }) => {
     const [key, setKey] = useState(initialKey || '');
     const [geminiKey, setGeminiKey] = useState(initialGeminiKey || '');
+    const [ghToken, setGhToken] = useState(initialGithubToken || '');
+    const [ghRepo, setGhRepo] = useState(initialGithubRepo || 'gattiuday/the-weekend-cinema'); // Default hint
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
             <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-lg max-w-md w-full shadow-2xl">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-serif font-bold text-white flex items-center gap-2">
-                        <Settings size={20} /> API Settings
+                        <Settings size={20} /> App Settings
                     </h2>
                     <button onClick={onClose}><X size={20} className="text-zinc-500 hover:text-white" /></button>
                 </div>
                 <div className="space-y-4">
                     <div>
                         <label className="block text-xs uppercase tracking-widest text-zinc-500 font-bold mb-2">TMDB API Key (v3)</label>
-                        <input type="text" value={key} onChange={(e) => setKey(e.target.value)} placeholder="Enter TMDB Key..." className="w-full bg-black border border-zinc-700 rounded p-3 text-white text-sm focus:border-[var(--primary)] outline-none font-mono mb-2" />
+                        <input type="password" value={key} onChange={(e) => setKey(e.target.value)} placeholder="TMDB Key" className="w-full bg-black border border-zinc-700 rounded p-3 text-white text-sm focus:border-[var(--primary)] outline-none font-mono mb-2" />
+
                         <label className="block text-xs uppercase tracking-widest text-zinc-500 font-bold mb-2">Google Gemini API Key</label>
-                        <input type="text" value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)} placeholder="Enter Gemini Key..." className="w-full bg-black border border-zinc-700 rounded p-3 text-white text-sm focus:border-[var(--primary)] outline-none font-mono" />
+                        <input type="password" value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)} placeholder="Gemini Key" className="w-full bg-black border border-zinc-700 rounded p-3 text-white text-sm focus:border-[var(--primary)] outline-none font-mono mb-2" />
+
+                        <div className="border-t border-zinc-800 my-4 pt-4">
+                            <h3 className="text-white text-sm font-bold mb-2 flex items-center gap-2"><Lock size={14} /> Direct Publish Setup (Optional)</h3>
+                            <label className="block text-xs uppercase tracking-widest text-zinc-500 font-bold mb-2">GitHub Personal Token (Classic)</label>
+                            <input type="password" value={ghToken} onChange={(e) => setGhToken(e.target.value)} placeholder="ghp_..." className="w-full bg-black border border-zinc-700 rounded p-3 text-white text-sm focus:border-[var(--primary)] outline-none font-mono mb-2" />
+
+                            <label className="block text-xs uppercase tracking-widest text-zinc-500 font-bold mb-2">Repository (username/repo)</label>
+                            <input type="text" value={ghRepo} onChange={(e) => setGhRepo(e.target.value)} placeholder="username/repo" className="w-full bg-black border border-zinc-700 rounded p-3 text-white text-sm focus:border-[var(--primary)] outline-none font-mono" />
+                        </div>
                     </div>
                     <div className="flex gap-3 mt-6">
-                        <button onClick={() => onSave(key, geminiKey)} className="flex-1 py-3 bg-[var(--primary)] text-black font-bold uppercase tracking-wider rounded-sm hover:opacity-90">
-                            Save
+                        <button onClick={() => onSave(key, geminiKey, ghToken, ghRepo)} className="flex-1 py-3 bg-[var(--primary)] text-black font-bold uppercase tracking-wider rounded-sm hover:opacity-90">
+                            Save Settings
                         </button>
                     </div>
                 </div>
@@ -544,6 +556,8 @@ const App = () => {
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [tmdbKey, setTmdbKey] = useState('');
     const [geminiKey, setGeminiKey] = useState('');
+    const [ghToken, setGhToken] = useState('');
+    const [ghRepo, setGhRepo] = useState('');
     const [draftPost, setDraftPost] = useState(null);
 
     // Initial Load - Retrieve local storage & Fetch JSON
@@ -556,6 +570,8 @@ const App = () => {
             if (savedAdmin === 'true') setIsAdmin(true);
             setTmdbKey(localStorage.getItem('tmdb_key') || window.TMDB_KEY || '');
             setGeminiKey(localStorage.getItem('gemini_key') || '');
+            setGhToken(localStorage.getItem('gh_token') || '');
+            setGhRepo(localStorage.getItem('gh_repo') || '');
 
             // Fetch Data
             try {
@@ -573,7 +589,13 @@ const App = () => {
     const handleThemeChange = (color) => { setThemeColor(color); localStorage.setItem('twc_theme', color); };
     const handleAdminLogin = () => { setIsAdmin(true); localStorage.setItem('twc_admin', 'true'); };
     const handleAdminLogout = () => { setIsAdmin(false); localStorage.removeItem('twc_admin'); if (view === 'editor') setView('home'); };
-    const handleSaveSettings = (t, g) => { setTmdbKey(t); setGeminiKey(g); localStorage.setItem('tmdb_key', t); localStorage.setItem('gemini_key', g); setShowSettingsModal(false); };
+    const handleSaveSettings = (t, g, gt, gr) => {
+        setTmdbKey(t); setGeminiKey(g); setGhToken(gt); setGhRepo(gr);
+        localStorage.setItem('tmdb_key', t); localStorage.setItem('gemini_key', g);
+        if (gt) localStorage.setItem('gh_token', gt);
+        if (gr) localStorage.setItem('gh_repo', gr);
+        setShowSettingsModal(false);
+    };
 
     // --- Core Logic: JSON Database ---
     const handleSavePost = async (postData) => {
@@ -589,9 +611,47 @@ const App = () => {
             newPosts.unshift({ ...postData, id: 'post-' + Date.now(), createdAt: now });
         }
 
+        if (ghToken && ghRepo) {
+            // DIRECT GITHUB SAVE
+            try {
+                // 1. Get SHA of existing file
+                const shaRes = await fetch(`https://api.github.com/repos/${ghRepo}/contents/posts.json`, {
+                    headers: { 'Authorization': `token ${ghToken}` }
+                });
+                const shaData = await shaRes.json();
+                const sha = shaData.sha;
+
+                // 2. Put new file
+                const contentEncoded = btoa(unescape(encodeURIComponent(JSON.stringify(newPosts, null, 2))));
+                const putRes = await fetch(`https://api.github.com/repos/${ghRepo}/contents/posts.json`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${ghToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: `Update post: ${postData.title}`,
+                        content: contentEncoded,
+                        sha: sha
+                    })
+                });
+
+                if (putRes.ok) {
+                    alert("✅ PUBLISHED LIVE! \n\nChanges saved directly to GitHub.");
+                } else {
+                    const err = await putRes.json();
+                    throw new Error(err.message || "GitHub Upload Failed");
+                }
+            } catch (e) {
+                alert("GitHub Direct Save Failed: " + e.message + "\n\nDownloading file instead...");
+                downloadJSON(newPosts);
+            }
+        } else {
+            // FALLBACK TO MANUAL DOWNLOAD
+            alert("✅ PREVIEW MODE: Post visible in browser.\n\nTo make it permanent live:\n1. A 'posts.json' file has downloaded.\n2. Replace the file in your project folder.\n3. git commit & push.\n\n(Tip: Add a GitHub Token in Settings to enable Direct Publish)");
+            downloadJSON(newPosts);
+        }
         setPosts(newPosts);
-        alert("✅ PREVIEW MODE: Post visible in browser.\n\nTo make it permanent live:\n1. A 'posts.json' file has downloaded.\n2. Replace the file in your project folder.\n3. git commit & push.");
-        downloadJSON(newPosts);
         setView('home');
     };
 

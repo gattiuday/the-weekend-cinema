@@ -80,7 +80,7 @@
         try {
           // Fetch text
           let configText = '';
-          const r = await fetch('./config.js');
+          const r = await fetch('./config.js?t=' + Date.now(), { cache: "no-store" });
           if (r.ok) {
             configText = await r.text();
           } else {
@@ -118,7 +118,7 @@
         console.log("Globals Injected:", { tmdb: !!window.TMDB_KEY });
 
         // 3. Fetch App
-        const response = await fetch('./App.js?t=' + Date.now());
+        const response = await fetch('./App.js?t=' + Date.now(), { cache: "no-store" });
         if (!response.ok) throw new Error(`Failed to load App.js: ${response.statusText}`);
         let appCode = await response.text();
 
