@@ -411,21 +411,42 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
     const [movies, setMovies] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [category, setCategory] = useState('now_playing');
+    const [language, setLanguage] = useState(''); // '' = Global, 'hi' = Hindi, etc.
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
     useEffect(() => {
         fetchMovies();
-    }, [category, tmdbKey]);
+    }, [category, tmdbKey, language]);
 
     const fetchMovies = async (query = '') => {
         if (!tmdbKey) return;
         setLoading(true);
         setError(null);
         try {
-            let url = `https://api.themoviedb.org/3/movie/${category}?api_key=${tmdbKey}&language=en-US&page=1`;
+            let url;
+
+            // 1. Search Mode (Global)
             if (query) {
                 url = `https://api.themoviedb.org/3/search/movie?api_key=${tmdbKey}&language=en-US&query=${encodeURIComponent(query)}&page=1&include_adult=false`;
+            }
+            // 2. Language/Regional Mode (Discover)
+            else if (language) {
+                // If language is selected, we MUST use discover to filter effectively
+                // Mapping categories to sort orders
+                let sortBy = 'popularity.desc';
+                if (category === 'top_rated') sortBy = 'vote_average.desc';
+                if (category === 'upcoming') sortBy = 'primary_release_date.desc';
+                // Note: 'now_playing' in discover is tricky without dates, relying on popularity + language is a good proxy for "Trending in Language"
+
+                url = `https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_original_language=${language}&sort_by=${sortBy}&page=1&include_adult=false&vote_count.gte=10`;
+
+                // Optional: For 'now_playing', we could add date filters, but Indian releases often have messy dates in TMDB. 
+                // Popularity is the safest bet for "What's Hot in Tollywood".
+            }
+            // 3. Global Standard Mode (Trending/Popular)
+            else {
+                url = `https://api.themoviedb.org/3/movie/${category}?api_key=${tmdbKey}&language=en-US&page=1`;
             }
 
             const res = await fetch(url);
@@ -454,33 +475,62 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
         );
     }
 
+    const languages = [
+        { code: '', label: '🌏 Global' },
+        { code: 'hi', label: '🇮🇳 Hindi' }, // Bollywood
+        { code: 'te', label: '🇮🇳 Telugu' }, // Tollywood
+        { code: 'ta', label: '🇮🇳 Tamil' }, // Kollywood
+        { code: 'kn', label: '🇮🇳 Kannada' }, // Sandalwood
+        { code: 'ml', label: '🇮🇳 Malayalam' } // Mollywood
+    ];
+
     return (
         <div className="max-w-7xl mx-auto px-4 py-8">
             {/* Header / Search */}
             <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8 sticky top-0 bg-black/90 backdrop-blur z-50 py-4 border-b border-zinc-900">
-                <div className="flex gap-4">
-                    {['now_playing', 'popular', 'top_rated', 'upcoming'].map(cat => (
-                        <button
-                            key={cat}
-                            onClick={() => { setCategory(cat); setSearchQuery(''); }}
-                            className={`text-sm font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-colors ${category === cat && !searchQuery ? 'bg-[var(--primary)] text-black' : 'text-zinc-500 hover:text-white'}`}
-                        >
-                            {cat.replace('_', ' ')}
-                        </button>
-                    ))}
+
+                <div className="flex flex-col gap-4 w-full md:w-auto">
+                    {/* Categories */}
+                    <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
+                        {['now_playing', 'popular', 'top_rated', 'upcoming'].map(cat => (
+                            <button
+                                key={cat}
+                                onClick={() => { setCategory(cat); setSearchQuery(''); }}
+                                className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-colors whitespace-nowrap ${category === cat && !searchQuery ? 'bg-[var(--primary)] text-black' : 'text-zinc-500 hover:text-white'}`}
+                            >
+                                {cat.replace('_', ' ')}
+                            </button>
+                        ))}
+                    </div>
                 </div>
-                <form onSubmit={handleSearch} className="relative w-full md:w-auto">
-                    <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search movies..."
-                        className="bg-zinc-900 border border-zinc-800 text-white rounded-full py-2 pl-4 pr-10 w-full md:w-64 focus:border-[var(--primary)] outline-none text-sm"
-                    />
-                    <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white">
-                        <Search size={16} />
-                    </button>
-                </form>
+
+                {/* Filters & Search */}
+                <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto items-center">
+                    {/* Language Dropdown */}
+                    <select
+                        value={language}
+                        onChange={(e) => setLanguage(e.target.value)}
+                        className="bg-zinc-900 border border-zinc-800 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 outline-none focus:border-[var(--primary)] w-full md:w-auto appearance-none cursor-pointer"
+                        style={{ backgroundImage: 'none' }} // remove default arrow if needed, or keep for clarity
+                    >
+                        {languages.map(lang => (
+                            <option key={lang.code} value={lang.code}>{lang.label}</option>
+                        ))}
+                    </select>
+
+                    <form onSubmit={handleSearch} className="relative w-full md:w-auto">
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search..."
+                            className="bg-zinc-900 border border-zinc-800 text-white rounded-full py-2 pl-4 pr-10 w-full md:w-64 focus:border-[var(--primary)] outline-none text-sm"
+                        />
+                        <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white">
+                            <Search size={16} />
+                        </button>
+                    </form>
+                </div>
             </div>
 
             {/* Content */}
