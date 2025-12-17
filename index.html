@@ -71,87 +71,66 @@
   <script type="module">
     async function loadApp() {
       try {
-        // 1. Fetch Config
-        let configText = '';
+        // --- 1. Load Configuration Globally ---
+        let configCode = '';
         try {
-          const configResp = await fetch('./config.js');
-          if (configResp.ok) {
-            configText = await configResp.text();
-          } else {
-            throw new Error('config.js missing');
-          }
+          const r = await fetch('./config.js');
+          if (r.ok) configCode = await r.text();
+          else throw new Error('config.js missing');
         } catch (e) {
-          console.warn("config.js load failed, attempting fallback...", e);
+          console.warn("Using fallback config");
           try {
-            const exampleResp = await fetch('./config.example.js');
-            if (exampleResp.ok) {
-              configText = await exampleResp.text();
-            } else {
-              throw new Error('config.example.js missing');
-            }
+            const r2 = await fetch('./config.example.js');
+            if (r2.ok) configCode = await r2.text();
+            else throw e;
           } catch (e2) {
-            console.error("Critical: All config files missing. Using hardcoded fallback.", e2);
-            // Absolute safety net
-            configText = `
-               const FIREBASE_CONFIG = { apiKey: "demo", authDomain: "demo", projectId: "demo" }; 
-               const APP_ID = "demo"; 
-               const TMDB_KEY = "";
-             `;
+            // Hard fallback
+            configCode = 'export const FIREBASE_CONFIG = { apiKey: "demo" }; export const APP_ID = "demo"; export const TMDB_KEY = "";';
           }
         }
 
-        // Remove 'export' keywords to make it valid inline script code
-        const cleanConfig = configText.replace(/export\s+const/g, 'const');
+        // Transform "export const" to just "const" and expose to window
+        configCode = configCode.replace(/export\s+const\s+/g, 'const ');
+        configCode += '\nwindow.TWC_CONFIG = { FIREBASE_CONFIG, APP_ID, TMDB_KEY: (typeof TMDB_KEY !== "undefined" ? TMDB_KEY : "") };';
 
-        // 2. Fetch App
+        // Execute Config Immediately
+        const configScript = document.createElement('script');
+        configScript.textContent = configCode;
+        document.head.appendChild(configScript);
+
+
+        // --- 2. Load and Transform App ---
         const response = await fetch('./App.js');
         if (!response.ok) throw new Error(`Failed to load App.js: ${response.statusText}`);
-        let code = await response.text();
+        let appCode = await response.text();
 
-        // 3. Inline Config (Replace import with actual code)
-        // We look for: import { ... } from './config.js'; or similar
-        // And replace it with the cleaned config code.
-        const configImportRegex = /import\s+\{[^}]+\}\s+from\s+['"]\.\/config\.js['"];?/;
-        code = code.replace(configImportRegex, cleanConfig);
+        // REPLACEMENT: Instead of importing from file, grab from Global Object
+        // Matches: import { A, B } from './config.js';
+        const configImportRegex = /import\s+\{([^}]+)\}\s+from\s+['"]\.\/config\.js['"];?/;
 
-        // 4. Manually resolve external imports to Absolute URLs
-        // (Just in case Import Map is flaky in Blob context)
-        const IMPORTS = {
-          'react': 'https://esm.sh/react@18.2.0',
-          'react-dom/client': 'https://esm.sh/react-dom@18.2.0/client',
-          'firebase/app': 'https://esm.sh/firebase@10.7.1/app',
-          'firebase/auth': 'https://esm.sh/firebase@10.7.1/auth?deps=firebase@10.7.1',
-          'firebase/firestore': 'https://esm.sh/firebase@10.7.1/firestore?deps=firebase@10.7.1',
-          'lucide-react': 'https://esm.sh/lucide-react@0.294.0'
-        };
-
-        for (const [key, value] of Object.entries(IMPORTS)) {
-          // Robust regex to replace 'from "key"' but avoid partial matches if possible
-          const regex = new RegExp(`from\\s+['"]${key}['"]`, 'g');
-          code = code.replace(regex, `from '${value}'`);
+        // We replace it with: const { A, B } = window.TWC_CONFIG;
+        // checking if match exists to avoid error
+        if (configImportRegex.test(appCode)) {
+          appCode = appCode.replace(configImportRegex, 'const { $1 } = window.TWC_CONFIG;');
+        } else {
+          console.warn("Could not find config import in App.js to replace");
         }
 
-        // Transpile JSX to JS, but keep ES modules (import/export) intact
-        const output = Babel.transform(code, {
-          presets: [
-            ['env', { modules: false, targets: { esmodules: true } }],
-            ['react', { runtime: 'classic' }]
-          ],
+        // --- 3. Babel Transform (React Only, No Env) ---
+        // We rely on browser native ES modules for imports
+        const output = Babel.transform(appCode, {
+          presets: [['react', { runtime: 'classic' }]],
           filename: 'App.js',
         });
 
-
-        // Create a blob URL for the transpiled code
+        // --- 4. Execute App ---
         const blob = new Blob([output.code], { type: 'text/javascript' });
         const url = URL.createObjectURL(blob);
-
-        // Dynamic import of the transpiled module
         await import(url);
+        console.log("App loaded via Global Config Strategy");
 
-        console.log("App loaded successfully via manual loader");
       } catch (err) {
-        console.error("Failed to load/transpile App:", err);
-        // Report to crash reporter if available
+        console.error("Critical Boot Error:", err);
         if (window.onerror) window.onerror(err.message, 'loader', 0, 0, err);
       }
     }
