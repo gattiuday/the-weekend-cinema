@@ -795,9 +795,9 @@ const App = () => {
         try {
             const savedTheme = localStorage.getItem('twc_theme');
             if (savedTheme) setThemeColor(savedTheme);
-            // Security: Do NOT load admin state from local storage
-            // const savedAdmin = localStorage.getItem('twc_admin');
-            // if (savedAdmin === 'true') setIsAdmin(true);
+            // Restore Admin Persistence
+            const savedAdmin = localStorage.getItem('twc_admin');
+            if (savedAdmin === 'true') setIsAdmin(true);
 
             const savedKey = localStorage.getItem('tmdb_key');
             if (savedKey) {
