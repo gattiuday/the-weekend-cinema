@@ -398,30 +398,46 @@ const Navbar = ({ onViewChange, currentView, user, isAdmin, onLogout, onLoginCli
     );
 };
 
-const OTTView = () => {
-    return (
-        <div className="min-h-[80vh] flex flex-col items-center justify-center p-8 text-center">
-            <div className="bg-zinc-900 p-8 rounded-full mb-8 border border-zinc-800 relative group">
-                <div className="absolute inset-0 bg-[var(--primary)] blur-2xl opacity-20 group-hover:opacity-40 transition-opacity rounded-full"></div>
-                <Tv size={64} className="text-[var(--primary)] relative z-10" />
-                <div className="absolute -bottom-2 -right-2 bg-zinc-950 p-2 rounded-full border border-zinc-800">
-                    <Clock size={20} className="text-zinc-400" />
+const OTTView = ({ movies }) => {
+    if (!movies || movies.length === 0) {
+        return (
+            <div className="min-h-[80vh] flex flex-col items-center justify-center p-8 text-center">
+                <div className="bg-zinc-900 p-8 rounded-full mb-8 border border-zinc-800 relative group">
+                    <div className="absolute inset-0 bg-[var(--primary)] blur-2xl opacity-20 group-hover:opacity-40 transition-opacity rounded-full"></div>
+                    <Tv size={64} className="text-[var(--primary)] relative z-10" />
+                    <div className="absolute -bottom-2 -right-2 bg-zinc-950 p-2 rounded-full border border-zinc-800">
+                        <Clock size={20} className="text-zinc-400" />
+                    </div>
                 </div>
+                <h2 className="text-4xl md:text-5xl font-serif font-bold text-white mb-4">
+                    OTT Guide <span className="text-[var(--primary)]">Coming Soon</span>
+                </h2>
+                <p className="text-zinc-400 max-w-md text-lg leading-relaxed mb-8">
+                    We are building the ultimate streaming companion.
+                    Track trending movies, find where to watch, and discover hidden gems.
+                </p>
             </div>
+        );
+    }
 
-            <h2 className="text-4xl md:text-5xl font-serif font-bold text-white mb-4">
-                OTT Guide <span className="text-[var(--primary)]">Coming Soon</span>
-            </h2>
-
-            <p className="text-zinc-400 max-w-md text-lg leading-relaxed mb-8">
-                We are building the ultimate streaming companion.
-                Track trending movies, find where to watch, and discover hidden gems.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-4">
-                <div className="px-6 py-3 bg-zinc-900 border border-zinc-800 rounded-sm text-zinc-500 text-xs font-bold uppercase tracking-widest flex items-center gap-3">
-                    <Construction size={16} /> Under Construction
-                </div>
+    return (
+        <div className="max-w-7xl mx-auto px-4 py-12">
+            <h2 className="text-3xl font-serif font-bold text-white mb-8 border-l-4 border-[var(--primary)] pl-4">Now Playing</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                {movies.map(movie => (
+                    <div key={movie.id} className="group relative bg-zinc-900 rounded-sm overflow-hidden border border-zinc-800 hover:border-[var(--primary)] transition-all">
+                        <div className="aspect-[2/3] overflow-hidden">
+                            <img src={movie.posterUrl} alt={movie.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        </div>
+                        <div className="p-3">
+                            <h3 className="text-white font-bold text-sm truncate">{movie.title}</h3>
+                            <div className="flex items-center justify-between mt-2 text-xs text-zinc-500">
+                                <span>{movie.releaseDate ? movie.releaseDate.split('-')[0] : 'N/A'}</span>
+                                <span className="flex items-center gap-1 text-[var(--primary)]"><Star size={10} fill="currentColor" /> {movie.rating?.toFixed(1)}</span>
+                            </div>
+                        </div>
+                    </div>
+                ))}
             </div>
         </div>
     );
@@ -740,6 +756,7 @@ const App = () => {
     const [user, setUser] = useState(null);
     const [view, setView] = useState('home');
     const [posts, setPosts] = useState([]);
+    const [guideMovies, setGuideMovies] = useState([]); // New State
     const [selectedPost, setSelectedPost] = useState(null);
     const [loading, setLoading] = useState(true);
     const [themeColor, setThemeColor] = useState('#f59e0b'); // Default Amber
