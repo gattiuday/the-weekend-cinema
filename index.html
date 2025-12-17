@@ -128,7 +128,10 @@
         // Transpile JSX to JS, but keep ES modules (import/export) intact
         // We assume Babel is loaded globally via the script tag above
         const output = Babel.transform(code, {
-          presets: [['react', { runtime: 'classic' }]], // Use classic runtime for simple CDN setup or 'automatic' if properly configured
+          presets: [
+            ['env', { modules: false, targets: { esmodules: true } }],
+            ['react', { runtime: 'classic' }]
+          ],
           filename: 'App.js',
         });
 
