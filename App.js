@@ -419,7 +419,7 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
 
     useEffect(() => {
         fetchMovies();
-    }, [category, tmdbKey, language]);
+    }, [category, tmdbKey, language, year, genre]);
 
     const fetchMovies = async (query = '') => {
         if (!tmdbKey) return;
@@ -432,8 +432,8 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
             if (query) {
                 url = `https://api.themoviedb.org/3/search/movie?api_key=${tmdbKey}&language=en-US&query=${encodeURIComponent(query)}&page=1&include_adult=false`;
             }
-            // 2. Language/Regional Mode (Discover)
-            else if (language) {
+            // 2. Discover Mode (Filters Active: Lang, Year, Genre)
+            else if (language || year || genre) {
                 // If language is selected, we MUST use discover to filter effectively
                 // Mapping categories to sort orders
                 let sortBy = 'popularity.desc';
@@ -441,7 +441,13 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
                 if (category === 'upcoming') sortBy = 'primary_release_date.desc';
                 // Note: 'now_playing' in discover is tricky without dates, relying on popularity + language is a good proxy for "Trending in Language"
 
-                url = `https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_original_language=${language}&sort_by=${sortBy}&page=1&include_adult=false&vote_count.gte=10`;
+                let discoverUrl = `https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&sort_by=${sortBy}&page=1&include_adult=false&vote_count.gte=10`;
+
+                if (language) discoverUrl += `&with_original_language=${language}`;
+                if (year) discoverUrl += `&primary_release_year=${year}`;
+                if (genre) discoverUrl += `&with_genres=${genre}`;
+
+                url = discoverUrl;
 
                 // Optional: For 'now_playing', we could add date filters, but Indian releases often have messy dates in TMDB. 
                 // Popularity is the safest bet for "What's Hot in Tollywood".
@@ -513,10 +519,35 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
                         value={language}
                         onChange={(e) => setLanguage(e.target.value)}
                         className="bg-zinc-900 border border-zinc-800 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 outline-none focus:border-[var(--primary)] w-full md:w-auto appearance-none cursor-pointer"
-                        style={{ backgroundImage: 'none' }} // remove default arrow if needed, or keep for clarity
+                        style={{ backgroundImage: 'none' }}
                     >
                         {languages.map(lang => (
                             <option key={lang.code} value={lang.code}>{lang.label}</option>
+                        ))}
+                    </select>
+
+                    {/* Year Dropdown */}
+                    <select
+                        value={year}
+                        onChange={(e) => setYear(e.target.value)}
+                        className="bg-zinc-900 border border-zinc-800 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 outline-none focus:border-[var(--primary)] w-full md:w-auto appearance-none cursor-pointer"
+                        style={{ backgroundImage: 'none' }}
+                    >
+                        <option value="">Year: All</option>
+                        {years.map(y => (
+                            <option key={y} value={y}>{y}</option>
+                        ))}
+                    </select>
+
+                    {/* Genre Dropdown */}
+                    <select
+                        value={genre}
+                        onChange={(e) => setGenre(e.target.value)}
+                        className="bg-zinc-900 border border-zinc-800 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 outline-none focus:border-[var(--primary)] w-full md:w-auto appearance-none cursor-pointer"
+                        style={{ backgroundImage: 'none' }}
+                    >
+                        {genres.map(g => (
+                            <option key={g.id} value={g.id}>{g.name}</option>
                         ))}
                     </select>
 
