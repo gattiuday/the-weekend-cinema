@@ -1277,6 +1277,7 @@ const App = () => {
         } catch (err) {
             console.error("Error saving post:", err);
             alert("Failed to publish article: " + err.message);
+            throw err; // Rethrow so Editor can reset loading state
         }
     };
 
