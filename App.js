@@ -411,7 +411,9 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
     const [movies, setMovies] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [category, setCategory] = useState('now_playing');
-    const [language, setLanguage] = useState(''); // '' = Global, 'hi' = Hindi, etc.
+    const [language, setLanguage] = useState('');
+    const [year, setYear] = useState('');
+    const [genre, setGenre] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
