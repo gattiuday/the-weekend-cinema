@@ -68,13 +68,30 @@
     async function loadApp() {
       try {
         // 1. Fetch Config
-        const configResp = await fetch('./config.js');
-        if (!configResp.ok) throw new Error('Failed to load config.js');
-        const configText = await configResp.text();
+        let configText = '';
+        try {
+          const configResp = await fetch('./config.js');
+          if (configResp.ok) {
+            configText = await configResp.text();
+          } else {
+            throw new Error('config.js missing');
+          }
+        } catch (e) {
+          console.warn("config.js not found, falling back to example config");
+          const exampleResp = await fetch('./config.example.js');
+          if (exampleResp.ok) {
+             configText = await exampleResp.text();
+          } else {
+             // Ultimate fallback if even example is missing (unlikely)
+             configText = `
+               const FIREBASE_CONFIG = { apiKey: "demo" }; 
+               const APP_ID = "demo"; 
+               const TMDB_KEY = "";
+             `;
+          }
+        }
 
         // Remove 'export' keywords to make it valid inline script code
-        // and ensure we don't have duplicate declarations if we were to simply concat.
-        // Simple regex to basic 'export const' -> 'const'
         const cleanConfig = configText.replace(/export\s+const/g, 'const');
 
         // 2. Fetch App
