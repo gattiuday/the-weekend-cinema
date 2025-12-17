@@ -538,42 +538,8 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
 
                 {/* Filters & Search */}
                 <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto items-center">
-                    {/* Language Dropdown */}
-                    <select
-                        value={language}
-                        onChange={(e) => setLanguage(e.target.value)}
-                        className="bg-zinc-900 border border-zinc-800 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 outline-none focus:border-[var(--primary)] w-full md:w-auto appearance-none cursor-pointer"
-                        style={{ backgroundImage: 'none' }}
-                    >
-                        {languageList.map(lang => (
-                            <option key={lang.code} value={lang.code}>{lang.label}</option>
-                        ))}
-                    </select>
-
-                    {/* Year Dropdown */}
-                    <select
-                        value={year}
-                        onChange={(e) => setYear(e.target.value)}
-                        className="bg-zinc-900 border border-zinc-800 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 outline-none focus:border-[var(--primary)] w-full md:w-auto appearance-none cursor-pointer"
-                        style={{ backgroundImage: 'none' }}
-                    >
-                        <option value="">Year: All</option>
-                        {yearList.map(y => (
-                            <option key={y} value={y}>{y}</option>
-                        ))}
-                    </select>
-
-                    {/* Genre Dropdown */}
-                    <select
-                        value={genre}
-                        onChange={(e) => setGenre(e.target.value)}
-                        className="bg-zinc-900 border border-zinc-800 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 outline-none focus:border-[var(--primary)] w-full md:w-auto appearance-none cursor-pointer"
-                        style={{ backgroundImage: 'none' }}
-                    >
-                        {genreList.map(g => (
-                            <option key={g.id} value={g.id}>{g.name}</option>
-                        ))}
-                    </select>
+                    {/* Filters Temporarily Removed for Diagnostics */}
+                    <div className="text-xs text-zinc-500 font-mono py-2">Diagnostics Mode</div>
 
                     <form onSubmit={handleSearch} className="relative w-full md:w-auto">
                         <input
