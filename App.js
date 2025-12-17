@@ -416,10 +416,11 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
     const [genre, setGenre] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [sortBy, setSortBy] = useState('popularity.desc');
 
     useEffect(() => {
         fetchMovies();
-    }, [category, tmdbKey, language, year, genre]);
+    }, [category, tmdbKey, language, year, genre, sortBy]);
 
     const fetchMovies = async (query = '') => {
         if (!tmdbKey) return;
@@ -434,13 +435,8 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
             }
             // 2. Discover Mode (Filters Active: Lang, Year, Genre)
             else if (language || year || genre) {
-                // If language is selected, we MUST use discover to filter effectively
-                // Mapping categories to sort orders
-                let sortBy = 'popularity.desc';
-                if (category === 'top_rated') sortBy = 'vote_average.desc';
-                if (category === 'upcoming') sortBy = 'primary_release_date.desc';
-                // Note: 'now_playing' in discover is tricky without dates, relying on popularity + language is a good proxy for "Trending in Language"
-
+                // If filters are active, we use the explicit 'sortBy' state
+                // This allows users to find "Best Rated" from 1980, etc.
                 let discoverUrl = `https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&sort_by=${sortBy}&page=1&include_adult=false&vote_count.gte=10`;
 
                 if (language) discoverUrl += `&with_original_language=${language}`;
@@ -448,12 +444,10 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
                 if (genre) discoverUrl += `&with_genres=${genre}`;
 
                 url = discoverUrl;
-
-                // Optional: For 'now_playing', we could add date filters, but Indian releases often have messy dates in TMDB. 
-                // Popularity is the safest bet for "What's Hot in Tollywood".
             }
             // 3. Global Standard Mode (Trending/Popular)
             else {
+                // When no filters are active, we map the 'category' pill to an endpoint
                 url = `https://api.themoviedb.org/3/movie/${category}?api_key=${tmdbKey}&language=en-US&page=1`;
             }
 
@@ -514,7 +508,15 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
         { id: '37', name: 'Western' },
     ];
 
+    const sortOptions = [
+        { value: 'popularity.desc', label: 'Most Popular' },
+        { value: 'vote_average.desc', label: 'Top Rated' },
+        { value: 'primary_release_date.desc', label: 'Newest First' },
+    ];
+
     const yearList = Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - i + 1);
+
+    const isFiltered = language || year || genre;
 
     return (
         <div className="max-w-7xl mx-auto px-4 py-8">
@@ -522,17 +524,33 @@ const OTTView = ({ tmdbKey, isAdmin, onImport }) => {
             <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8 sticky top-0 bg-black/90 backdrop-blur z-50 py-4 border-b border-zinc-900">
 
                 <div className="flex flex-col gap-4 w-full md:w-auto">
-                    {/* Categories */}
-                    <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
-                        {['now_playing', 'popular', 'top_rated', 'upcoming'].map(cat => (
-                            <button
-                                key={cat}
-                                onClick={() => { setCategory(cat); setSearchQuery(''); }}
-                                className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-colors whitespace-nowrap ${category === cat && !searchQuery ? 'bg-[var(--primary)] text-black' : 'text-zinc-500 hover:text-white'}`}
-                            >
-                                {cat.replace('_', ' ')}
-                            </button>
-                        ))}
+                    {/* Categories / Sort */}
+                    <div className="flex gap-2 items-center overflow-x-auto pb-2 md:pb-0">
+                        {!isFiltered ? (
+                            ['now_playing', 'popular', 'top_rated', 'upcoming'].map(cat => (
+                                <button
+                                    key={cat}
+                                    onClick={() => { setCategory(cat); setSearchQuery(''); }}
+                                    className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-colors whitespace-nowrap ${category === cat && !searchQuery ? 'bg-[var(--primary)] text-black' : 'text-zinc-500 hover:text-white'}`}
+                                >
+                                    {cat.replace('_', ' ')}
+                                </button>
+                            ))
+                        ) : (
+                            // Show Sort Dropdown when Filtered
+                            <div className="flex items-center gap-2">
+                                <span className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Sort:</span>
+                                <select
+                                    value={sortBy}
+                                    onChange={(e) => setSortBy(e.target.value)}
+                                    className="bg-black text-[var(--primary)] text-xs font-bold uppercase tracking-wider outline-none cursor-pointer"
+                                >
+                                    {sortOptions.map(opt => (
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                     </div>
                 </div>
 
